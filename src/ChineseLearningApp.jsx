@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+\1import { extendLevels } from './data/levels';
 import { shuffleNonTrivial } from './utils/shuffle';
 import { Book, Heart, Star, Trophy, X, Search, AlertTriangle } from 'lucide-react';
 
@@ -681,11 +681,12 @@ const ChineseLearningApp = () => {
   };
 
   const handleExamAnswer = (selectedOption) => {
-    const examData = level.exam[examQuestion];
+    const examList = getExam(level);
+    const examData = examList[examQuestion];
     const correct = selectedOption === examData.correct;
 
     if (correct) {
-      if (examQuestion < level.exam.length - 1) {
+      if (examQuestion < examList.length - 1) {
         setExamQuestion(examQuestion + 1);
       } else {
         const newLives = lives + 3;
@@ -813,7 +814,8 @@ const ChineseLearningApp = () => {
 
   // Examen
   if (showExam && level) {
-    const examData = level.exam[examQuestion];
+    const examList = getExam(level);
+    const examData = examList[examQuestion];
     return (
       <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50">
         <div className="container mx-auto px-4 py-8">
@@ -1052,5 +1054,32 @@ const ChineseLearningApp = () => {
     </div>
   );
 };
+
+// Asegurar que todos los exámenes tengan 6 preguntas como máximo.
+// Si un nivel no define examen o tiene menos de 6, se genera desde sus ejercicios.
+const buildExamFromExercises = (exercises, n = 6) => {
+  const pool = (exercises || []).map(ex => ({ q: ex.chinese, ans: ex.spanish }));
+  const chosen = pool.slice(0, n);
+  return chosen.map((item) => {
+    const distractors = pool.filter(p => p.ans !== item.ans).map(p => p.ans);
+    const pick = (arr, k) => {
+      const a = [...arr];
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a.slice(0, k);
+    };
+    const options = shuffleArray([item.ans, ...pick(distractors, 3)]);
+    const correct = options.indexOf(item.ans);
+    return { question: item.q, options, correct };
+  });
+};
+
+const getExam = (level) => {
+  if (level && Array.isArray(level.exam) && level.exam.length >= 6) return level.exam.slice(0, 6);
+  return buildExamFromExercises(level?.exercises || [], 6);
+};
+
 
 export default ChineseLearningApp;
