@@ -2,6 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { Book, Heart, Star, Trophy, X, Search, AlertTriangle } from 'lucide-react';
 import { extendLevels } from './data/levels';
 
+const shuffleLocal = (array) => {
+  const a = Array.isArray(array) ? [...array] : [];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+};
+
 // Datos (versión compacta con 6 niveles actuales). Si quieres 20 niveles, te los agrego luego.
 const chineseData = {
   dictionary: {
@@ -272,7 +281,7 @@ chineseData.levels = [
     {question:'米饭',options:['Fideos','Arroz','Pollo','Carne'],correct:1}
   ]},
 ];
-// Extiende a 20 niveles
+// Extender a 20 niveles
 chineseData.levels = extendLevels(chineseData.levels);
 
 
@@ -295,6 +304,21 @@ const ChineseLearningApp = () => {
   const [randomizedExercises, setRandomizedExercises] = useState({});
 
   const level = chineseData.levels.find((l) => l.id === currentLevel);
+// Helpers examen robustos (6 preguntas)
+const buildExamFromExercises = (exercises, n = 6) => {
+  const pool = (exercises || []).map(ex => ({ q: ex.chinese, ans: ex.spanish }));
+  const pick = (arr, k) => shuffleLocal(arr).slice(0, k);
+  return pick(pool, Math.min(n, pool.length)).map((item) => {
+    const distractors = pool.filter(p => p.ans !== item.ans).map(p => p.ans);
+    const options = shuffleLocal([item.ans, ...pick(distractors, 3)]);
+    return { question: item.q, options, correct: options.indexOf(item.ans) };
+  });
+};
+const getExam = (level) => {
+  if (level && Array.isArray(level.exam) && level.exam.length >= 6) return level.exam.slice(0, 6);
+  return buildExamFromExercises(level?.exercises || [], 6);
+};
+
 
   const shuffleArray = (array) => {
     const shuffled = [...array];
@@ -309,7 +333,7 @@ const ChineseLearningApp = () => {
     if (!randomizedExercises[levelId]) {
       const levelData = chineseData.levels.find((l) => l.id === levelId);
       if (levelData && Array.isArray(levelData.exercises)) {
-        const shuffled = shuffleArray(levelData.exercises);
+        const shuffled = shuffleLocal(levelData.exercises);
         setRandomizedExercises((prev) => ({ ...prev, [levelId]: shuffled }));
         return shuffled;
       }
@@ -341,7 +365,7 @@ const ChineseLearningApp = () => {
   useEffect(() => {
     const levelData = chineseData.levels.find((l) => l.id === currentLevel);
     if (levelData && levelData.exercises && !randomizedExercises[currentLevel]) {
-      const shuffled = shuffleArray(levelData.exercises);
+      const shuffled = shuffleLocal(levelData.exercises);
       setRandomizedExercises((prev) => ({ ...prev, [currentLevel]: shuffled }));
     }
   }, [currentLevel]);
@@ -410,7 +434,7 @@ const ChineseLearningApp = () => {
     setShowResult(false); setShowExam(false); setExamQuestion(0); setAttemptsLeft(4);
     const levelData = chineseData.levels.find((l) => l.id === currentLevel);
     if (levelData && levelData.exercises) {
-      const shuffled = shuffleArray(levelData.exercises);
+      const shuffled = shuffleLocal(levelData.exercises);
       setRandomizedExercises((prev) => ({ ...prev, [currentLevel]: shuffled }));
     }
     setLevelProgress({ ...levelProgress, [currentLevel]: 0 });
@@ -423,7 +447,7 @@ const ChineseLearningApp = () => {
       setCurrentExercise(0); setSelectedWords([]); setShowResult(false);
       setShowExam(false); setExamQuestion(0);
       if (!randomizedExercises[levelNum] && levelData.exercises) {
-        const shuffled = shuffleArray(levelData.exercises);
+        const shuffled = shuffleLocal(levelData.exercises);
         setRandomizedExercises((prev) => ({ ...prev, [levelNum]: shuffled }));
       }
     }
@@ -674,29 +698,5 @@ const ChineseLearningApp = () => {
     </div>
   );
 };
-// Asegurar exámenes de 6 preguntas (si el nivel no trae, se genera desde sus ejercicios)
-const buildExamFromExercises = (exercises, n = 6) => {
-  const pool = (exercises || []).map(ex => ({ q: ex.chinese, ans: ex.spanish }));
-  const pick = (arr, k) => {
-    const a = [...arr];
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [a[i], a[j]] = [a[j], a[i]];
-    }
-    return a.slice(0, k);
-  };
-  return pick(pool, Math.min(n, pool.length)).map((item) => {
-    const distractors = pool.filter(p => p.ans !== item.ans).map(p => p.ans);
-    const options = shuffleArray([item.ans, ...pick(distractors, 3)]);
-    const correct = options.indexOf(item.ans);
-    return { question: item.q, options, correct };
-  });
-};
-
-const getExam = (level) => {
-  if (level && Array.isArray(level.exam) && level.exam.length >= 6) return level.exam.slice(0, 6);
-  return buildExamFromExercises(level?.exercises || [], 6);
-};
-
 
 export default ChineseLearningApp;

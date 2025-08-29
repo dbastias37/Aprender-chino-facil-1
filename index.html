@@ -5,7 +5,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Aprender Chino Fácil</title>
     <link rel="icon" href="/favicon.ico" />
-  </head>
+  
+  <script>
+    // Fallback global to evitar 'shuffleArray is not defined'
+    (function(){
+      if (typeof window !== 'undefined' && typeof window.shuffleArray === 'undefined') {
+        window.shuffleArray = function(arr){
+          var a = Array.isArray(arr) ? arr.slice() : [];
+          for (var i = a.length - 1; i > 0; i--) {
+            var j = Math.floor(Math.random() * (i + 1));
+            var tmp = a[i]; a[i] = a[j]; a[j] = tmp;
+          }
+          return a;
+        };
+      }
+    })();
+  </script>
+</head>
+
   <body class="min-h-screen">
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
