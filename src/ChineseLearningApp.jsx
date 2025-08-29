@@ -1,5 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { shuffleNonTrivial } from './utils/shuffle';
 import { Book, Heart, Star, Trophy, X, Search, AlertTriangle } from 'lucide-react';
 
 // ✅ Datos corregidos y estructurados (SIN CAMBIAR CONTENIDO, solo orden/estructura)
@@ -457,7 +458,8 @@ const ChineseLearningApp = () => {
   const [lives, setLives] = useState(5);
   const [showDictionary, setShowDictionary] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedWords, setSelectedWords] = useState([]);
+  const [tiles, setTiles] = useState([]); // fichas disponibles
+  const [attempt, setAttempt] = useState([]); // índices seleccionados
   const [showExam, setShowExam] = useState(false);
   const [examQuestion, setExamQuestion] = useState(0);
   const [levelProgress, setLevelProgress] = useState({});
@@ -500,6 +502,21 @@ const ChineseLearningApp = () => {
     currentLevelExercises && currentLevelExercises.length > currentExercise
       ? currentLevelExercises[currentExercise]
       : null;
+
+  // Caracteres objetivo del ejercicio actual
+  const targetChars = useMemo(() => {
+    if (!exercise) return [];
+    return Array.from(exercise.chinese.normalize()).filter((c) => /\S/.test(c));
+  }, [exercise]);
+
+  // Inicializar fichas cuando cambia el ejercicio
+  useEffect(() => {
+    if (targetChars.length > 0) {
+      const shuffled = shuffleNonTrivial(targetChars);
+      setTiles(shuffled.map((char) => ({ char, used: false })));
+      setAttempt([]);
+    }
+  }, [targetChars]);
 
   // Animación corazón
   useEffect(() => {
@@ -599,19 +616,34 @@ const ChineseLearningApp = () => {
     setDataIssues(issues);
   }, []);
 
-  const handleWordClick = (wordObj) => {
-    if (selectedWords.some((w) => w.uniqueId === wordObj.uniqueId)) {
-      setSelectedWords(selectedWords.filter((w) => w.uniqueId !== wordObj.uniqueId));
-    } else {
-      setSelectedWords([...selectedWords, wordObj]);
-    }
+  const handleTileClick = (index) => {
+    if (!tiles[index] || tiles[index].used) return;
+    const tileChar = tiles[index].char;
+    setTiles((prev) => prev.map((t, i) => (i === index ? { ...t, used: true } : t)));
+    setAttempt((prev) => {
+      const next = [...prev, index];
+      if (next.length === targetChars.length) {
+        checkAnswer(next);
+      }
+      return next;
+    });
   };
 
-  const checkAnswer = () => {
-    if (!exercise) return;
+  const undoLast = () => {
+    setAttempt((prev) => {
+      if (prev.length === 0) return prev;
+      const lastIndex = prev[prev.length - 1];
+      setTiles((tilesPrev) =>
+        tilesPrev.map((t, i) => (i === lastIndex ? { ...t, used: false } : t))
+      );
+      return prev.slice(0, -1);
+    });
+  };
 
-    const userAnswer = selectedWords.map((w) => w.char).join('');
-    const correctAnswer = exercise.chinese;
+  const checkAnswer = (attemptIndices) => {
+    if (!exercise) return;
+    const userAnswer = attemptIndices.map((i) => tiles[i].char).join('');
+    const correctAnswer = targetChars.join('');
     const correct = userAnswer === correctAnswer;
 
     setIsCorrect(correct);
@@ -633,7 +665,6 @@ const ChineseLearningApp = () => {
       setShowResult(false);
       if (correct) {
         if (currentExercise >= totalExercises - 1) {
-          // ✅ ahora respeta cantidad real de ejercicios
           setShowExam(true);
           setLevelProgress({ ...levelProgress, [currentLevel]: totalExercises });
         } else {
@@ -641,8 +672,11 @@ const ChineseLearningApp = () => {
           setCurrentExercise(next);
           setLevelProgress({ ...levelProgress, [currentLevel]: next });
         }
+      } else {
+        const reshuffled = shuffleNonTrivial(targetChars);
+        setTiles(reshuffled.map((char) => ({ char, used: false })));
       }
-      setSelectedWords([]);
+      setAttempt([]);
     }, 800);
   };
 
@@ -682,7 +716,8 @@ const ChineseLearningApp = () => {
     setCurrentExercise(0);
     setLives(5);
     setGameOverType(null);
-    setSelectedWords([]);
+    setAttempt([]);
+    setTiles([]);
     setShowResult(false);
     setShowExam(false);
     setExamQuestion(0);
@@ -701,7 +736,8 @@ const ChineseLearningApp = () => {
     if (levelData) {
       setCurrentLevel(levelNum);
       setCurrentExercise(0);
-      setSelectedWords([]);
+      setAttempt([]);
+      setTiles([]);
       setShowResult(false);
       setShowExam(false);
       setExamQuestion(0);
@@ -902,8 +938,8 @@ const ChineseLearningApp = () => {
         </div>
 
         {/* Ejercicio */}
-        {exercise && exercise.words && exercise.words.length > 0 ? (
-          <div className="bg-white rounded-2xl shadow-lg p-8 max-w-4xl mx-auto">
+        {exercise ? (
+          <div className="bg-white rounded-2xl shadow-lg p-8 max-w-4xl mx-auto transform scale-105">
             <div className="text-center mb-8">
               <h2 className="text-3xl font-bold text-red-800 mb-4">{level?.title || 'Nivel'}</h2>
               <p className="text-gray-600 mb-6">Construye la frase en chino:</p>
@@ -912,30 +948,48 @@ const ChineseLearningApp = () => {
             </div>
 
             <div className="bg-red-50 border-2 border-dashed border-red-300 rounded-xl p-6 mb-8 min-h-24 flex flex-wrap gap-3 items-center justify-center">
-              {selectedWords.length > 0 ? (
-                selectedWords.map((wordObj) => (
-                  <div key={wordObj.uniqueId} className="bg-red-600 text-white px-4 py-3 rounded-lg font-semibold text-center cursor-pointer hover:bg-red-700 transition-colors flex flex-col items-center" onClick={() => handleWordClick(wordObj)}>
-                    <div className="text-xl">{wordObj.char}</div>
-                    <div className="text-xs opacity-90">{wordObj.pinyin}</div>
+              {attempt.length > 0 ? (
+                attempt.map((idx) => (
+                  <div
+                    key={`sel-${idx}`}
+                    className="bg-red-600 text-white px-4 py-3 rounded-lg font-semibold text-center cursor-pointer hover:bg-red-700 transition-colors"
+                    onClick={undoLast}
+                  >
+                    <div className="text-xl">{tiles[idx].char}</div>
                   </div>
                 ))
               ) : (
-                <p className="text-red-400 text-lg">Toca las palabras para construir la frase</p>
+                <p className="text-red-400 text-lg">Toca las fichas para construir la palabra</p>
               )}
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-              {exercise.words.map((wordObj, index) => (
-                <button key={wordObj.uniqueId || `word-${index}`} onClick={() => handleWordClick(wordObj)} className={`p-4 rounded-xl font-semibold transition-colors border-2 text-center ${selectedWords.some((w) => w.uniqueId === wordObj.uniqueId) ? 'bg-red-200 text-red-800 border-red-400' : 'bg-orange-100 text-orange-800 border-orange-300 hover:bg-orange-200'}`}>
-                  <div className="text-xl mb-1">{wordObj.char}</div>
-                  <div className="text-sm opacity-75">{wordObj.pinyin}</div>
+              {tiles.map((tile, index) => (
+                <button
+                  key={`tile-${index}`}
+                  onClick={() => handleTileClick(index)}
+                  disabled={tile.used}
+                  aria-disabled={tile.used}
+                  className={`p-4 rounded-xl font-semibold transition-colors border-2 text-center ${
+                    tile.used
+                      ? 'bg-red-200 text-red-800 border-red-400 cursor-not-allowed'
+                      : 'bg-orange-100 text-orange-800 border-orange-300 hover:bg-orange-200'
+                  }`}
+                >
+                  <div className="text-xl">{tile.char}</div>
                 </button>
               ))}
             </div>
 
             <div className="text-center">
-              <button onClick={checkAnswer} disabled={selectedWords.length === 0} className={`px-8 py-3 rounded-xl text-white font-semibold text-lg transition-colors ${selectedWords.length > 0 ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-400 cursor-not-allowed'}`}>
-                Comprobar
+              <button
+                onClick={undoLast}
+                disabled={attempt.length === 0}
+                className={`px-8 py-3 rounded-xl text-white font-semibold text-lg transition-colors ${
+                  attempt.length > 0 ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-400 cursor-not-allowed'
+                }`}
+              >
+                Deshacer
               </button>
             </div>
           </div>
