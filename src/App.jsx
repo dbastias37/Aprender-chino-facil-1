@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Book, Heart, Star, Trophy, X, Search, AlertTriangle } from 'lucide-react';
 import { extendLevels } from './data/levels';
+import FloatingPanel from './components/FloatingPanel.jsx';
 
 // Datos (versión compacta con 6 niveles actuales). Si quieres 20 niveles, te los agrego luego.
 const chineseData = {
@@ -366,6 +367,33 @@ export default function App() {
   // Estado para cachear examen por nivel
   const [examCache, setExamCache] = React.useState({});
 
+  const resetForExam = () => {
+    setExamQuestion(0);
+    setExamStats({ correct: 0, wrong: 0, streak: 0, bestStreak: 0, mistakes: {} });
+  };
+
+  const advanceToNextLevel = () => {
+    setShowSummary(false);
+    setShowExam(false);
+    resetForExam();
+
+    setTiles([]);
+    setAttempt([]);
+
+    setExamCache(prev => {
+      const copy = { ...(prev || {}) };
+      delete copy[currentLevel];
+      delete copy[currentLevel + 1];
+      return copy;
+    });
+
+    const next = currentLevel + 1;
+    if (chineseData.levels.some(l => l.id === next)) {
+      setCurrentLevel(next);
+      setCurrentExercise(0);
+    }
+  };
+
   // Construye examen (6 preguntas), con 1 correcta + 3 distractores sólidos
   const buildExamFromExercises = (exercises, n = 6, allLevels = chineseData.levels, levelId = 0) => {
     const pool = (exercises || []).map(ex => ({ q: ex.chinese, ans: ex.spanish })).filter(x => x.q && x.ans);
@@ -511,6 +539,7 @@ export default function App() {
       setExamQuestion(examQuestion + 1);
     } else {
       setShowSummary(true);
+      setShowExam(false);
     }
   };
 
@@ -613,63 +642,7 @@ export default function App() {
     );
   }
 
-  if (showSummary) {
-    const examList = getExamStable(level);
-    const hardest = Object.entries(examStats.mistakes).sort((a,b)=>b[1]-a[1])[0];
-    let hardestES = '';
-    if (hardest?.[0]) {
-      const found = (level.exercises || []).find(ex => ex.chinese === hardest[0]);
-      hardestES = found?.spanish || '';
-    }
-
-    return (
-      <div className="min-h-screen p-6 flex items-center justify-center bg-gradient-to-br from-emerald-50 to-teal-50">
-        <div className="max-w-xl w-full bg-white rounded-3xl shadow-lg p-8 text-center">
-          <h2 className="text-3xl font-bold text-emerald-700 mb-2">¡Felicitaciones!</h2>
-          <p className="text-gray-600 mb-6">Examen del nivel {currentLevel} completado.</p>
-
-          <div className="grid grid-cols-2 gap-4 text-left mb-6">
-            <div className="p-4 rounded-2xl bg-emerald-50">
-              <div className="text-sm text-gray-500">Puntaje</div>
-              <div className="text-2xl font-semibold">{examStats.correct} / {examList.length}</div>
-            </div>
-            <div className="p-4 rounded-2xl bg-emerald-50">
-              <div className="text-sm text-gray-500">Mejor racha</div>
-              <div className="text-2xl font-semibold">{examStats.bestStreak}</div>
-            </div>
-            <div className="p-4 rounded-2xl bg-emerald-50 col-span-2">
-              <div className="text-sm text-gray-500">Palabra que más costó</div>
-              {hardest ? (
-                <div className="mt-1">
-                  <div className="text-xl">{hardest[0]} <span className="text-gray-400">×{hardest[1]}</span></div>
-                  <div className="text-sm text-gray-500">{hardestES}</div>
-                </div>
-              ) : (
-                <div className="text-sm text-gray-500 mt-1">¡Ninguna te complicó!</div>
-              )}
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-3 justify-center">
-            <button
-              onClick={() => { setShowSummary(false); setExamQuestion(0); setExamStats({correct:0,wrong:0,streak:0,bestStreak:0,mistakes:{}}); setShowExam(true); }}
-              className="px-5 py-2 rounded-xl bg-gray-900 text-white"
-            >
-              Reintentar
-            </button>
-            <button
-              onClick={() => { setShowSummary(false); setShowExam(false); setExamQuestion(0); setExamStats({correct:0,wrong:0,streak:0,bestStreak:0,mistakes:{}}); const next=currentLevel+1; if(chineseData.levels.find(l=>l.id===next)){ setCurrentLevel(next);} }}
-              className="px-5 py-2 rounded-xl bg-emerald-600 text-white"
-            >
-              Siguiente nivel
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (showExam) {
+    if (showExam) {
     const examList = getExamStable(level);
     const q = examList[examQuestion];
     if (!q) return <div className="p-6">Generando examen…</div>;
@@ -709,7 +682,8 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50">
+    <>
+      <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50">
       {showDictionary && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
@@ -846,5 +820,57 @@ export default function App() {
         </div>
       </div>
     </div>
+      <FloatingPanel
+        open={showSummary}
+        title="¡Felicitaciones!"
+        onClose={() => setShowSummary(false)}
+        actions={[
+          {
+            label: "Reintentar examen",
+            className: "px-4 py-2 rounded-xl bg-gray-900 text-white",
+            onClick: () => { setShowSummary(false); setShowExam(true); resetForExam(); }
+          },
+          {
+            label: "Siguiente nivel",
+            className: "px-4 py-2 rounded-xl bg-emerald-600 text-white",
+            onClick: advanceToNextLevel
+          }
+        ]}
+      >
+        {(() => {
+          const examList = getExamStable(level);
+          const hardest = Object.entries(examStats.mistakes).sort((a,b)=>b[1]-a[1])[0];
+          let hardestES = '';
+          if (hardest?.[0]) {
+            const found = (level.exercises || []).find(ex => ex.chinese === hardest[0]);
+            hardestES = found?.spanish || '';
+          }
+          return (
+            <div>
+              <div className="text-gray-600 mb-3">Examen del nivel {currentLevel} completado.</div>
+              <div className="grid grid-cols-2 gap-3 text-left">
+                <div className="p-3 rounded-2xl bg-emerald-50">
+                  <div className="text-xs text-gray-500">Puntaje</div>
+                  <div className="text-xl font-semibold">{examStats.correct} / {examList.length}</div>
+                </div>
+                <div className="p-3 rounded-2xl bg-emerald-50">
+                  <div className="text-xs text-gray-500">Mejor racha</div>
+                  <div className="text-xl font-semibold">{examStats.bestStreak}</div>
+                </div>
+                <div className="p-3 rounded-2xl bg-emerald-50 col-span-2">
+                  <div className="text-xs text-gray-500">Palabra que más costó</div>
+                  {hardest ? (
+                    <div className="mt-1">
+                      <div className="text-lg">{hardest[0]} <span className="text-gray-400">×{hardest[1]}</span></div>
+                      <div className="text-xs text-gray-500">{hardestES}</div>
+                    </div>
+                  ) : <div className="text-xs text-gray-500 mt-1">¡Ninguna te complicó!</div>}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+      </FloatingPanel>
+    </>
   );
 }
