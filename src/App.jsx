@@ -338,13 +338,7 @@ const getExamStable = (level) => {
 };
 const level = chineseData.levels.find((l) => l.id === currentLevel);
 // Helpers examen robustos (6 preguntas)
-const buildExamFromExercises = (exercises, n = 6) => {
-  const pool = (exercises || []).map(ex => ({ q: ex.chinese, ans: ex.spanish }));
-  const pick = (arr, k) => shuffleLocal(arr).slice(0, k);
-  return pick(pool, Math.min(n, pool.length)).map((item) => {
-    const distractors = pool.filter(p => p.ans !== item.ans).map(p => p.ans);
-    const options = shuffleLocal([item.ans, ...pick(distractors, 3)]);
-    return { question: item.q, options, correct: options.indexOf(item.ans) };
+
   });
 };
 const getExam = (level) => {
