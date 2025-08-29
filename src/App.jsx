@@ -65,7 +65,7 @@ export default function App() {
         {levels.map(l => (
           <button key={l.id}
             onClick={() => setCurrentLevel(l.id)}
-            className={\`px-3 py-2 rounded \${currentLevel===l.id?'bg-red-500 text-white':'bg-gray-200'}\`}>
+            className={`px-3 py-2 rounded \${currentLevel===l.id?'bg-red-500 text-white':'bg-gray-200'}`}>
             {l.id}
           </button>
         ))}
