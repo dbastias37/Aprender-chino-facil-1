@@ -1,4 +1,3 @@
-\
 import React, { useState, useEffect } from 'react';
 import { Book, Heart, Star, Trophy, X, Search, AlertTriangle } from 'lucide-react';
 
