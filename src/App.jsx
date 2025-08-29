@@ -316,32 +316,10 @@ const ChineseLearningApp = () => {
   const [gameOverType, setGameOverType] = useState(null);
   const [randomizedExercises, setRandomizedExercises] = useState({});
 
-  
-// Helpers examen (6 preguntas) + caché por nivel (estable)
-const buildExamFromExercises = (exercises, n = 6) => {
-  const pool = (exercises || []).map(ex => ({ q: ex.chinese, ans: ex.spanish }));
-  const pick = (arr, k) => shuffleLocal(arr).slice(0, k);
-  return pick(pool, Math.min(n, pool.length)).map((item) => {
-    const distractors = pool.filter(p => p.ans !== item.ans).map(p => p.ans);
-    const options = shuffleLocal([item.ans, ...pick(distractors, 3)]);
-    return { question: item.q, options, correct: options.indexOf(item.ans) };
-  });
-};
-const [examCache, setExamCache] = React.useState({});
-const getExamStable = (level) => {
-  if (!level) return [];
-  const id = level.id || 0;
-  if (examCache[id]) return examCache[id];
-  const ex = (level.exam && level.exam.length >= 6) ? level.exam.slice(0,6) : buildExamFromExercises(level.exercises || [], 6);
-  setExamCache(prev => ({ ...prev, [id]: ex }));
-  return ex;
-};
 const level = chineseData.levels.find((l) => l.id === currentLevel);
 
-
-
-  
 // === Exam helpers (6 preguntas) — estable por nivel ===
+const [examCache, setExamCache] = React.useState({});
 const buildExamFromExercises = (exercises, n = 6) => {
   const pool = (exercises || []).map(ex => ({ q: ex.chinese, ans: ex.spanish }));
   const pick = (arr, k) => {
@@ -359,7 +337,6 @@ const buildExamFromExercises = (exercises, n = 6) => {
     return { question: item.q, options, correct };
   });
 };
-const [examCache, setExamCache] = React.useState({});
 const getExamStable = (level) => {
   if (!level) return [];
   const id = level.id || 0;
@@ -370,14 +347,13 @@ const getExamStable = (level) => {
   setExamCache(prev => ({ ...prev, [id]: ex }));
   return ex;
 };
-const shuffleArray = (array) => {
-    const shuffled = [...array];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    return shuffled;
-  };
+
+
+  
+
+
+
+  
 
   const getRandomizedExercises = (levelId) => {
     if (!randomizedExercises[levelId]) {
@@ -681,9 +657,12 @@ const shuffleArray = (array) => {
             <div className="bg-red-50 border-2 border-dashed border-red-300 rounded-2xl p-6 mb-8 min-h-24 flex flex-wrap gap-3 items-center justify-center">
               {selectedWords.length > 0 ? (
                 selectedWords.map((wordObj) => (
-                  <div key={wordObj.uniqueId} className="bg-red-600 text-white px-4 py-3 rounded-lg font-semibold text-center cursor-pointer hover:bg-red-700 transition-colors flex flex-col items-center" onClick={() => handleWordClick(wordObj)}>
+                  <div
+                    key={wordObj.uniqueId}
+                    className="bg-red-600 text-white px-4 py-3 rounded-lg font-semibold text-center cursor-pointer hover:bg-red-700 transition-colors flex items-center justify-center"
+                    onClick={() => handleWordClick(wordObj)}
+                  >
                     <div className="text-4xl">{wordObj.char}</div>
-                    <div className="text-xs opacity-90">{wordObj.pinyin}</div>
                   </div>
                 ))
               ) : (
@@ -693,9 +672,12 @@ const shuffleArray = (array) => {
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
               {exercise.words.map((wordObj, index) => (
-                <button key={wordObj.uniqueId || `word-${index}`} onClick={() => handleWordClick(wordObj)} className={`p-4 rounded-2xl font-semibold transition-colors border-2 text-center ${selectedWords.some((w) => w.uniqueId === wordObj.uniqueId) ? 'bg-red-200 text-red-800 border-red-400' : 'bg-orange-100 text-orange-800 border-orange-300 hover:bg-orange-200'}`}>
-                  <div className="text-4xl mb-1">{wordObj.char}</div>
-                  <div className="text-sm opacity-75">{wordObj.pinyin}</div>
+                <button
+                  key={wordObj.uniqueId || `word-${index}`}
+                  onClick={() => handleWordClick(wordObj)}
+                  className={`px-4 py-4 rounded-2xl border shadow-sm bg-white hover:bg-orange-50 ${selectedWords.some((w) => w.uniqueId === wordObj.uniqueId) ? 'opacity-50' : ''}`}
+                >
+                  <div className="text-4xl">{wordObj.char}</div>
                 </button>
               ))}
             </div>

@@ -493,45 +493,40 @@ const ChineseLearningApp = () => {
   const [dataIssues, setDataIssues] = useState([]); // ✅ Panel de test/validación
 
   
-// Helpers examen (6 preguntas) + caché por nivel (estable)
+const level = chineseData.levels.find((l) => l.id === currentLevel);
+
+// === Exam helpers (6 preguntas) — estable por nivel ===
+const [examCache, setExamCache] = React.useState({});
 const buildExamFromExercises = (exercises, n = 6) => {
   const pool = (exercises || []).map(ex => ({ q: ex.chinese, ans: ex.spanish }));
-  const pick = (arr, k) => shuffleLocal(arr).slice(0, k);
+  const pick = (arr, k) => {
+    const a = Array.isArray(arr) ? [...arr] : [];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a.slice(0, k);
+  };
   return pick(pool, Math.min(n, pool.length)).map((item) => {
     const distractors = pool.filter(p => p.ans !== item.ans).map(p => p.ans);
-    const options = shuffleLocal([item.ans, ...pick(distractors, 3)]);
-    return { question: item.q, options, correct: options.indexOf(item.ans) };
+    const options = pick([item.ans, ...pick(distractors, 3)], 4);
+    const correct = options.indexOf(item.ans);
+    return { question: item.q, options, correct };
   });
 };
-const [examCache, setExamCache] = React.useState({});
 const getExamStable = (level) => {
   if (!level) return [];
   const id = level.id || 0;
   if (examCache[id]) return examCache[id];
-  const ex = (level.exam && level.exam.length >= 6) ? level.exam.slice(0,6) : buildExamFromExercises(level.exercises || [], 6);
+  const ex = (Array.isArray(level.exam) && level.exam.length >= 6)
+    ? level.exam.slice(0,6)
+    : buildExamFromExercises(level.exercises || [], 6);
   setExamCache(prev => ({ ...prev, [id]: ex }));
   return ex;
 };
-const level = chineseData.levels.find((l) => l.id === currentLevel);
-// Helpers examen robustos (6 preguntas)
-
-  });
-};
-const getExam = (level) => {
-  if (level && Array.isArray(level.exam) && level.exam.length >= 6) return level.exam.slice(0, 6);
-  return buildExamFromExercises(level?.exercises || [], 6);
-};
 
 
-  // Utilidad: barajar
-  const shuffleArray = (array) => {
-    const shuffled = [...array];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    return shuffled;
-  };
+
 
   // Obtener ejercicios aleatorizados para el nivel actual
   const getRandomizedExercises = (levelId) => {
@@ -1023,11 +1018,7 @@ const getExam = (level) => {
                   onClick={() => handleTileClick(index)}
                   disabled={tile.used}
                   aria-disabled={tile.used}
-                  className={`p-4 rounded-2xl font-semibold transition-colors border-2 text-center ${
-                    tile.used
-                      ? 'bg-red-200 text-red-800 border-red-400 cursor-not-allowed'
-                      : 'bg-orange-100 text-orange-800 border-orange-300 hover:bg-orange-200'
-                  }`}
+                  className={`px-4 py-4 rounded-2xl border shadow-sm bg-white hover:bg-orange-50 ${tile.used ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   <div className="text-4xl">{tile.char}</div>
                 </button>
