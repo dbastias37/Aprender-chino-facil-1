@@ -2,27 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Book, Heart, Star, Trophy, X, Search, AlertTriangle } from 'lucide-react';
 import { extendLevels } from './data/levels';
 
-const normalizeLevels = (levels) => (levels || []).map((lvl) => ({
-  ...lvl,
-  exercises: (lvl.exercises || []).map((ex) => ({
-    ...ex,
-    words: (ex.words || []).map((w, idx) => ({
-      ...w,
-      uniqueId: w.uniqueId || `w-${lvl.id}-${ex.id}-${idx}-${w.char || ''}`
-    }))
-  }))
-}));
-
-
-const shuffleLocal = (array) => {
-  const a = Array.isArray(array) ? [...array] : [];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-};
-
 // Datos (versión compacta con 6 niveles actuales). Si quieres 20 niveles, te los agrego luego.
 const chineseData = {
   dictionary: {
@@ -306,11 +285,19 @@ const ChineseLearningApp = () => {
   const [lives, setLives] = useState(5);
   const [showDictionary, setShowDictionary] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedWords, setSelectedWords] = useState([]);
+  const [tiles, setTiles] = useState([]);
+  const [attempt, setAttempt] = useState([]);
   const [showExam, setShowExam] = useState(false);
+  const [showSummary, setShowSummary] = useState(false);
   const [examQuestion, setExamQuestion] = useState(0);
+  const [examStats, setExamStats] = useState({
+    correct: 0,
+    wrong: 0,
+    streak: 0,
+    bestStreak: 0,
+    mistakes: {}
+  });
   const [levelProgress, setLevelProgress] = useState({});
-  const [attemptsLeft, setAttemptsLeft] = useState(4);
   const [showResult, setShowResult] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
   const [gameOverType, setGameOverType] = useState(null);
@@ -318,32 +305,107 @@ const ChineseLearningApp = () => {
 
 const level = chineseData.levels.find((l) => l.id === currentLevel);
 
-// === Exam helpers (6 preguntas) — estable por nivel ===
-const [examCache, setExamCache] = React.useState({});
-const buildExamFromExercises = (exercises, n = 6) => {
-  const pool = (exercises || []).map(ex => ({ q: ex.chinese, ans: ex.spanish }));
-  const pick = (arr, k) => {
-    const a = Array.isArray(arr) ? [...arr] : [];
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [a[i], a[j]] = [a[j], a[i]];
+// === Helpers examen y normalización (ÚNICO BLOQUE) ===
+
+// Barajador local, sin dependencias externas
+const shuffleLocal = (array) => {
+  const a = Array.isArray(array) ? [...array] : [];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+};
+
+// Convierte "汉字串" + "han zi chuan" -> [{char:'汉', pinyin:'han'}, ...]
+const toCharWords = (han, py) => {
+  const chars = Array.from(han).filter(c => /\S/.test(c));
+  const p = (py || "").trim().split(/\s+/);
+  if (!chars.length) return [];
+  // Empareja por índice; si pinyin es más corto, reutiliza el último
+  return chars.map((c, i) => ({
+    char: c,
+    pinyin: p[i] ?? p[p.length - 1] ?? '',
+    uniqueId: `w-${c}-${i}`
+  }));
+};
+
+// Garantiza que cada ejercicio tenga words por carácter (hanzi + pinyin)
+const ensureCharWords = (ex) => {
+  if (!ex) return ex;
+  const w = Array.isArray(ex.words) ? ex.words : [];
+  const needRebuild = !w.length || w.some(x => !x?.char) || (w.length === 1 && (ex.chinese || '').trim().length > 1);
+  if (needRebuild) {
+    const rebuilt = toCharWords(ex.chinese || "", ex.pinyin || "");
+    return { ...ex, words: rebuilt };
+  }
+  // Asegura uniqueId y pinyin
+  const safe = w.map((x, idx) => ({
+    ...x,
+    uniqueId: x.uniqueId || `w-${ex.id}-${idx}-${x.char || ''}`,
+    pinyin: x.pinyin ?? ''
+  }));
+  return { ...ex, words: safe };
+};
+
+// Normaliza TODOS los niveles a words por carácter
+const normalizeLevels = (levels) => (levels || []).map((lvl) => ({
+  ...lvl,
+  exercises: (lvl.exercises || []).map(ensureCharWords),
+}));
+
+// Construye un pool de distractores (ES) desde niveles >= minId (por defecto 7)
+const spanishPoolFromLevels = (levels, minId = 7) => {
+  const L = levels || [];
+  const pool = [];
+  for (const lvl of L) {
+    if ((lvl.id ?? 0) >= minId) {
+      for (const ex of (lvl.exercises || [])) {
+        if (ex?.spanish) pool.push(ex.spanish);
+      }
     }
-    return a.slice(0, k);
-  };
-  return pick(pool, Math.min(n, pool.length)).map((item) => {
-    const distractors = pool.filter(p => p.ans !== item.ans).map(p => p.ans);
-    const options = pick([item.ans, ...pick(distractors, 3)], 4);
+  }
+  return Array.from(new Set(pool));
+};
+
+// EXAMEN: 6 preguntas con 1 correcta + 3 distractores sólidos.
+// Para niveles >=7 usa pool global (niveles 7..20) si faltan distractores del propio nivel.
+const buildExamFromExercises = (exercises, n = 6, allLevels = chineseData.levels, levelId = 0) => {
+  const pool = (exercises || []).map(ex => ({ q: ex.chinese, ans: ex.spanish }));
+  const pick = (arr, k) => shuffleLocal(arr).slice(0, k);
+
+  const globalDistractors = spanishPoolFromLevels(allLevels, 7);
+
+  const makeQuestion = (item) => {
+    // Distractores primarios: del mismo nivel
+    const sameLevel = pool.filter(p => p.ans && p.ans !== item.ans).map(p => p.ans);
+    let candidates = Array.from(new Set(sameLevel));
+
+    // Si el nivel es >=7 o no alcanzan, completa con pool global (sin la correcta)
+    if ((levelId >= 7) || candidates.length < 3) {
+      const extras = globalDistractors.filter(x => x && x !== item.ans);
+      // mezcla y suma (evita duplicados)
+      candidates = Array.from(new Set([...candidates, ...pick(extras, 6)]));
+    }
+
+    const distractors = pick(candidates, 3);
+    const options = shuffleLocal([item.ans, ...distractors]);
     const correct = options.indexOf(item.ans);
     return { question: item.q, options, correct };
-  });
+  };
+
+  return pick(pool, Math.min(n, pool.length)).map(makeQuestion);
 };
+
+// Cache de examen por nivel (estable)
+const [examCache, setExamCache] = React.useState({});
 const getExamStable = (level) => {
   if (!level) return [];
   const id = level.id || 0;
   if (examCache[id]) return examCache[id];
   const ex = (Array.isArray(level.exam) && level.exam.length >= 6)
-    ? level.exam.slice(0,6)
-    : buildExamFromExercises(level.exercises || [], 6);
+    ? level.exam.slice(0, 6)
+    : buildExamFromExercises(level.exercises || [], 6, chineseData.levels, id);
   setExamCache(prev => ({ ...prev, [id]: ex }));
   return ex;
 };
@@ -396,19 +458,23 @@ const getExamStable = (level) => {
     }
   }, [currentLevel]);
 
-  const handleWordClick = (wordObj) => {
-    if (selectedWords.some((w) => w.uniqueId === wordObj.uniqueId)) {
-      setSelectedWords(selectedWords.filter((w) => w.uniqueId !== wordObj.uniqueId));
-    } else {
-      setSelectedWords([...selectedWords, wordObj]);
+  useEffect(() => {
+    if (exercise?.words?.length) {
+      setTiles(shuffleLocal(exercise.words).map(t => ({ ...t, used: false })));
+      setAttempt([]);
     }
+  }, [exercise]);
+
+  const toggleTile = (idx) => {
+    setTiles(prev => prev.map((t, i) => i === idx ? { ...t, used: !t.used } : t));
+    setAttempt(prev => prev.includes(idx) ? prev.filter(i => i !== idx) : [...prev, idx]);
   };
 
   const checkAnswer = () => {
     if (!exercise) return;
-    const userAnswer = selectedWords.map((w) => w.char).join('');
-    const correctAnswer = exercise.chinese;
-    const correct = userAnswer === correctAnswer;
+    const user = attempt.map(i => tiles[i]?.char).join('');
+    const target = (exercise?.chinese || '').replace(/\s+/g, '');
+    const correct = user === target;
     setIsCorrect(correct);
     setShowResult(true);
     if (!correct) {
@@ -431,33 +497,49 @@ const getExamStable = (level) => {
           setLevelProgress({ ...levelProgress, [currentLevel]: next });
         }
       }
-      setSelectedWords([]);
+      setAttempt([]);
+      setTiles(prev => prev.map(t => ({ ...t, used: false })));
     }, 800);
   };
 
-  const handleExamAnswer = (selectedOption) => {
+  const handleExamAnswer = (selectedIndex) => {
     const examList = getExamStable(level);
-    const examData = examList[examQuestion];
-    const correct = selectedOption === examData.correct;
-    if (correct) {
-      if (examQuestion < examList.length - 1) setExamQuestion(examQuestion + 1);
-      else {
-        const nextLevel = currentLevel + 1;
-        setLives(lives + 3);
-        if (chineseData.levels.find((l) => l.id === nextLevel)) goToLevel(nextLevel);
-        else setCurrentExercise(0);
-        setShowExam(false); setExamQuestion(0); setAttemptsLeft(4);
+    const q = examList[examQuestion];
+    const isCorrect = selectedIndex === q.correct;
+
+    setExamStats(prev => {
+      const next = { ...prev };
+      if (isCorrect) {
+        next.correct += 1;
+        next.streak += 1;
+        next.bestStreak = Math.max(next.bestStreak, next.streak);
+      } else {
+        next.wrong += 1;
+        next.streak = 0;
+        const key = q.question || '';
+        next.mistakes[key] = (next.mistakes[key] || 0) + 1;
       }
+      return next;
+    });
+
+    if (examQuestion < examList.length - 1) {
+      setExamQuestion(examQuestion + 1);
     } else {
-      const tries = attemptsLeft - 1;
-      setAttemptsLeft(tries);
-      if (tries <= 0) { setGameOverType('failedExam'); setShowExam(false); setExamQuestion(0); setAttemptsLeft(4); }
+      setShowSummary(true);
     }
   };
 
   const restartLevel = () => {
-    setCurrentExercise(0); setLives(5); setGameOverType(null); setSelectedWords([]);
-    setShowResult(false); setShowExam(false); setExamQuestion(0); setAttemptsLeft(4);
+    setCurrentExercise(0);
+    setLives(5);
+    setGameOverType(null);
+    setShowResult(false);
+    setShowExam(false);
+    setShowSummary(false);
+    setExamQuestion(0);
+    setExamStats({ correct: 0, wrong: 0, streak: 0, bestStreak: 0, mistakes: {} });
+    setAttempt([]);
+    setTiles([]);
     const levelData = chineseData.levels.find((l) => l.id === currentLevel);
     if (levelData && levelData.exercises) {
       const shuffled = shuffleLocal(levelData.exercises);
@@ -470,8 +552,14 @@ const getExamStable = (level) => {
     const levelData = chineseData.levels.find((l) => l.id === levelNum);
     if (levelData) {
       setCurrentLevel(levelNum);
-      setCurrentExercise(0); setSelectedWords([]); setShowResult(false);
-      setShowExam(false); setExamQuestion(0);
+      setCurrentExercise(0);
+      setShowResult(false);
+      setShowExam(false);
+      setShowSummary(false);
+      setExamQuestion(0);
+      setExamStats({ correct: 0, wrong: 0, streak: 0, bestStreak: 0, mistakes: {} });
+      setAttempt([]);
+      setTiles([]);
       if (!randomizedExercises[levelNum] && levelData.exercises) {
         const shuffled = shuffleLocal(levelData.exercises);
         setRandomizedExercises((prev) => ({ ...prev, [levelNum]: shuffled }));
@@ -540,6 +628,77 @@ const getExamStable = (level) => {
     );
   }
 
+  if (showSummary) {
+    const examList = getExamStable(level);
+    const hardest = Object.entries(examStats.mistakes).sort((a,b) => b[1]-a[1])[0];
+    let hardestES = '';
+    if (hardest?.[0]) {
+      const found = (level.exercises || []).find(ex => ex.chinese === hardest[0]);
+      hardestES = found?.spanish || '';
+    }
+
+    return (
+      <div className="min-h-screen p-6 flex items-center justify-center bg-gradient-to-br from-emerald-50 to-teal-50">
+        <div className="max-w-xl w-full bg-white rounded-3xl shadow-lg p-8 text-center">
+          <h2 className="text-3xl font-bold text-emerald-700 mb-2">¡Felicitaciones!</h2>
+          <p className="text-gray-600 mb-6">Has completado el examen del nivel {currentLevel}.</p>
+
+          <div className="grid grid-cols-2 gap-4 text-left mb-6">
+            <div className="p-4 rounded-2xl bg-emerald-50">
+              <div className="text-sm text-gray-500">Puntaje</div>
+              <div className="text-2xl font-semibold">{examStats.correct} / {examList.length}</div>
+            </div>
+            <div className="p-4 rounded-2xl bg-emerald-50">
+              <div className="text-sm text-gray-500">Mejor racha</div>
+              <div className="text-2xl font-semibold">{examStats.bestStreak}</div>
+            </div>
+            <div className="p-4 rounded-2xl bg-emerald-50 col-span-2">
+              <div className="text-sm text-gray-500">Palabra que más costó</div>
+              {hardest ? (
+                <div className="mt-1">
+                  <div className="text-xl">{hardest[0]} <span className="text-gray-400">×{hardest[1]}</span></div>
+                  <div className="text-sm text-gray-500">{hardestES}</div>
+                </div>
+              ) : (
+                <div className="text-sm text-gray-500 mt-1">¡Ninguna te complicó!</div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-3 justify-center">
+            <button
+              onClick={() => { setShowSummary(false); setShowExam(false); setExamQuestion(0); setExamStats({correct:0,wrong:0,streak:0,bestStreak:0,mistakes:{}}); setShowExam(true); }}
+              className="px-5 py-2 rounded-xl bg-gray-900 text-white"
+            >
+              Reintentar examen
+            </button>
+            <button
+              onClick={() => { 
+                setShowSummary(false); 
+                setExamQuestion(0); 
+                setExamStats({correct:0,wrong:0,streak:0,bestStreak:0,mistakes:{}}); 
+                const next = currentLevel + 1; 
+                setShowExam(false); 
+                if (chineseData.levels.find(l => l.id === next)) {
+                  setCurrentLevel(next);
+                }
+              }}
+              className="px-5 py-2 rounded-xl bg-emerald-600 text-white"
+            >
+              Siguiente nivel
+            </button>
+            <button
+              onClick={() => { /* opcional: navegar a una vista de revisión */ }}
+              className="px-5 py-2 rounded-xl border"
+            >
+              Revisar errores
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (showExam && level) {
     const examList = getExamStable(level);
     const examData = examList[examQuestion];
@@ -557,7 +716,6 @@ const getExamStable = (level) => {
                   <Heart key={index} className={`w-5 h-5 transition-all duration-300 ${index < lives ? 'text-red-500 fill-red-500 animate-pulse' : 'text-gray-300 fill-gray-300'}`} style={{ animation: index < lives ? 'heartbeat 1.5s ease-in-out infinite' : 'none' }} />
                 ))}
               </div>
-              <div className="text-red-700">Intentos: {attemptsLeft}</div>
             </div>
           </div>
 
@@ -655,14 +813,14 @@ const getExamStable = (level) => {
             </div>
 
             <div className="bg-red-50 border-2 border-dashed border-red-300 rounded-2xl p-6 mb-8 min-h-24 flex flex-wrap gap-3 items-center justify-center">
-              {selectedWords.length > 0 ? (
-                selectedWords.map((wordObj) => (
+              {attempt.length > 0 ? (
+                attempt.map((i) => (
                   <div
-                    key={wordObj.uniqueId}
+                    key={tiles[i]?.uniqueId || i}
                     className="bg-red-600 text-white px-4 py-3 rounded-lg font-semibold text-center cursor-pointer hover:bg-red-700 transition-colors flex items-center justify-center"
-                    onClick={() => handleWordClick(wordObj)}
+                    onClick={() => toggleTile(i)}
                   >
-                    <div className="text-4xl">{wordObj.char}</div>
+                    <div className="text-4xl">{tiles[i]?.char}</div>
                   </div>
                 ))
               ) : (
@@ -671,19 +829,21 @@ const getExamStable = (level) => {
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-              {exercise.words.map((wordObj, index) => (
+              {tiles.map((w, idx) => (
                 <button
-                  key={wordObj.uniqueId || `word-${index}`}
-                  onClick={() => handleWordClick(wordObj)}
-                  className={`px-4 py-4 rounded-2xl border shadow-sm bg-white hover:bg-orange-50 ${selectedWords.some((w) => w.uniqueId === wordObj.uniqueId) ? 'opacity-50' : ''}`}
+                  key={w.uniqueId || idx}
+                  disabled={Boolean(w.used)}
+                  onClick={() => toggleTile(idx)}
+                  className="px-4 py-4 rounded-2xl border shadow-sm bg-white hover:bg-orange-50 disabled:opacity-50"
                 >
-                  <div className="text-4xl">{wordObj.char}</div>
+                  <div className="text-4xl mb-1">{w.char}</div>
+                  <div className="text-xs text-gray-500">{w.pinyin}</div>
                 </button>
               ))}
             </div>
 
             <div className="text-center">
-              <button onClick={checkAnswer} disabled={selectedWords.length === 0} className={`px-8 py-3 rounded-2xl text-white font-semibold text-lg transition-colors ${selectedWords.length > 0 ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-400 cursor-not-allowed'}`}>Comprobar</button>
+              <button onClick={checkAnswer} disabled={attempt.length === 0} className={`px-8 py-3 rounded-2xl text-white font-semibold text-lg transition-colors ${attempt.length > 0 ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-400 cursor-not-allowed'}`}>Comprobar</button>
             </div>
           </div>
         ) : currentLevelExercises.length === 0 ? (
