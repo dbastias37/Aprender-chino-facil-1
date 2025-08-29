@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Book, Heart, Star, Trophy, X, Search, AlertTriangle } from 'lucide-react';
 import { extendLevels } from './data/levels';
 import FloatingPanel from './components/FloatingPanel.jsx';
+import RescueLivesGame from './components/RescueLivesGame.jsx';
+import FloatingPanel from './components/FloatingPanel.jsx';
 
 // Datos (versión compacta con 6 niveles actuales). Si quieres 20 niveles, te los agrego luego.
 const chineseData = {
@@ -283,6 +285,10 @@ export default function App() {
   const [currentLevel, setCurrentLevel] = useState(1);
   const [currentExercise, setCurrentExercise] = useState(0);
   const [lives, setLives] = useState(5);
+
+  const [rescueSummary, setRescueSummary] = React.useState(null);
+
+  const [showRescue, setShowRescue] = React.useState(false);
   const [showDictionary, setShowDictionary] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [tiles, setTiles] = useState([]);
@@ -291,6 +297,7 @@ export default function App() {
   const [showSummary, setShowSummary] = useState(false);
   const [examQuestion, setExamQuestion] = useState(0);
   const [examStats, setExamStats] = useState({
+  const PASS_THRESHOLD = 4;
     correct: 0,
     wrong: 0,
     streak: 0,
@@ -601,6 +608,26 @@ export default function App() {
             <p className="text-gray-600 mb-4">Domina caracteres fundamentales, construye frases y mejora tu comprensión del mandarín a través de ejercicios interactivos y progresivos.</p>
             <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-6">
               <h3 className="font-semibold text-red-800 mb-2">¿Qué aprenderás?</h3>
+              <p className="mt-2 text-sm text-gray-700"><b>Una herramienta para aprender jugando</b> que conecta el <b>español</b> con el <b>chino</b>.</p>
+              <div className="mt-3">
+                <div className="text-xs text-gray-600 mb-1">Tópicos:</div>
+                <ul className="text-xs text-gray-700 grid grid-cols-2 gap-x-4 gap-y-1">
+                  <li>• Animales</li>
+                  <li>• Transporte</li>
+                  <li>• Dinero y comercio</li>
+                  <li>• Preguntas avanzadas</li>
+                  <li>• Respuestas avanzadas</li>
+                  <li>• La hora</li>
+                  <li>• El clima</li>
+                  <li>• Emociones</li>
+                  <li>• Estados de ánimo</li>
+                  <li>• Meses</li>
+                  <li>• Comercio avanzado</li>
+                  <li>• Mascotas avanzado</li>
+                  <li>• Bares y salidas avanzado</li>
+                  <li>• Cordialidades avanzado</li>
+                </ul>
+              </div>
               <ul className="text-sm text-red-700 space-y-1">
                 <li>• Saludos y expresiones básicas</li>
                 <li>• Números del 1 al 8</li>
@@ -629,6 +656,14 @@ export default function App() {
             <>
               <h2 className="text-2xl font-bold text-red-600 mb-4">¡Has perdido todas tus vidas!</h2>
               <p className="text-gray-600 mb-6">Inténtalo de nuevo. Recuerda bien los caracteres y su significado.</p>
+              <div className="flex flex-col gap-3 items-center mt-4">
+                <button onClick={()=>setShowRescue(true)} className="px-5 py-2 rounded-xl bg-emerald-600 text-white">Rescatar vidas (minijuego)</button>
+                <div className="flex gap-2">
+                  <button onClick={()=>{ setGameOverType(null); }} className="px-4 py-2 rounded-xl border">Volver al último nivel</button>
+                  <button onClick={()=>{ setGameOverType(null); setCurrentLevel(1); setCurrentExercise(0); }} className="px-4 py-2 rounded-xl border">Pantalla principal</button>
+                </div>
+              </div>
+    
             </>
           ) : (
             <>
@@ -867,7 +902,49 @@ export default function App() {
                   ) : <div className="text-xs text-gray-500 mt-1">¡Ninguna te complicó!</div>}
                 </div>
               </div>
-            </div>
+            
+{showRescue && (
+  <RescueLivesGame
+    levels={chineseData.levels}
+    currentLevel={currentLevel}
+    maxLives={5}
+    onClose={({ pagesCompleted, totalPages, hearts }) => {
+      setShowRescue(false);
+      // Calcular corazones a otorgar
+      if (hearts === 'full') {
+        setLives(5);
+        setGameOverType(null);
+        setRescueSummary({ hearts: 'full', pagesCompleted, totalPages });
+      } else if (hearts >= 2) {
+        setLives(prev => Math.min(5, (prev || 0) + 2));
+        setGameOverType(null);
+        setRescueSummary({ hearts: 2, pagesCompleted, totalPages });
+      } else if (hearts === 1) {
+        setLives(prev => Math.min(5, (prev || 0) + 1));
+        setGameOverType(null);
+        setRescueSummary({ hearts: 1, pagesCompleted, totalPages });
+      } else {
+        // Sin premio: permanecemos en game over
+        setRescueSummary({ hearts: 0, pagesCompleted, totalPages });
+      }
+    }}
+  />
+)}
+<FloatingPanel
+  open={!!rescueSummary && rescueSummary.hearts !== 0}
+  title="¡Vidas recuperadas!"
+  onClose={()=>setRescueSummary(null)}
+  actions={[{ label:'Continuar', className:'px-4 py-2 rounded-xl bg-emerald-600 text-white', onClick:()=>{ setRescueSummary(null); } }]}
+>
+  <div className="text-gray-700">
+    {rescueSummary?.hearts === 'full' ? (
+      <p>¡Completaste todas las páginas ({rescueSummary?.totalPages}) y recuperaste <b>todas</b> las vidas!</p>
+    ) : (
+      <p>Completaste {rescueSummary?.pagesCompleted} / {rescueSummary?.totalPages} páginas y recuperaste <b>{rescueSummary?.hearts}</b> {rescueSummary?.hearts===1?'vida':'vidas'}.</p>
+    )}
+  </div>
+</FloatingPanel>
+</div>
           );
         })()}
       </FloatingPanel>
