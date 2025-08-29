@@ -4,12 +4,13 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "prebuild": "node -e \"const fs=require('fs');const p='src/App.jsx';if(fs.existsSync(p)){let s=fs.readFileSync(p,'utf8');s=s.replace(/^\\uFEFF/, '');s=s.replace(/^\\\\\\s*\\n/, '');fs.writeFileSync(p,s);}\"",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "dependencies": {
     "react": "^18.3.1",
