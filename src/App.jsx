@@ -3,7 +3,6 @@ import { Book, Heart, Star, Trophy, X, Search, AlertTriangle } from 'lucide-reac
 import { extendLevels } from './data/levels';
 import FloatingPanel from './components/FloatingPanel.jsx';
 import RescueLivesGame from './components/RescueLivesGame.jsx';
-import FloatingPanel from './components/FloatingPanel.jsx';
 
 // Datos (versión compacta con 6 niveles actuales). Si quieres 20 niveles, te los agrego luego.
 const chineseData = {
@@ -297,13 +296,13 @@ export default function App() {
   const [showSummary, setShowSummary] = useState(false);
   const [examQuestion, setExamQuestion] = useState(0);
   const [examStats, setExamStats] = useState({
-  const PASS_THRESHOLD = 4;
     correct: 0,
     wrong: 0,
     streak: 0,
     bestStreak: 0,
     mistakes: {}
   });
+  const PASS_THRESHOLD = 4;
   const [levelProgress, setLevelProgress] = useState({});
   const [showResult, setShowResult] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
