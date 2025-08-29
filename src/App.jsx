@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { levels } from './levels';
 import { extendLevels } from './data/levels';
 import ExamSidebar from './components/ExamSidebar';
@@ -26,6 +26,8 @@ export default function App() {
   const [currentLevel, setCurrentLevel] = useState(0);
   const [currentExercise, setCurrentExercise] = useState(0);
   const [exerciseOrder, setExerciseOrder] = useState([]);
+  const [shuffleSeed, setShuffleSeed] = useState(0);
+  const [showMinusOne, setShowMinusOne] = useState(false); // ensure defined
 
   useEffect(() => {
     const ex = levelsState[currentLevel]?.exercises || [];
@@ -33,7 +35,13 @@ export default function App() {
     setCurrentExercise(0);
   }, [currentLevel, levelsState]);
 
-  const exercise = levelsState[currentLevel]?.exercises[exerciseOrder[currentExercise]];
+  const currentLevelExercises = levelsState[currentLevel]?.exercises || [];
+  // Guard contra índices fuera de rango (evita crash en blanco)
+  const safeExerciseIndex = Math.min(
+    Math.max(0, exerciseOrder[currentExercise] ?? 0),
+    Math.max(0, currentLevelExercises.length - 1)
+  );
+  const exercise = currentLevelExercises[safeExerciseIndex] || null;
   const tiles = useMemo(() => shuffleNonTrivial(expandWords(exercise)), [exercise]);
 
   const [answer, setAnswer] = useState('');
@@ -53,7 +61,6 @@ export default function App() {
     }
   }, [isExam, currentLevel, maxAttempts]);
 
-  const [showMinusOne, setShowMinusOne] = useState(false);
   const [showLevelComplete, setShowLevelComplete] = useState(false);
   const [showExamResult, setShowExamResult] = useState(false);
 
@@ -72,7 +79,7 @@ export default function App() {
         setExamErrors((err) => [...err, { correct: exercise.chinese, pinyin: exercise.pinyin, user: answer }]);
       }
     }
-    const total = levelsState[currentLevel].exercises.length;
+    const total = currentLevelExercises.length;
     const done = currentExercise + 1 >= total || (isExam && nextAttempts <= 0);
     if (done) {
       if (isExam) setShowExamResult(true);
@@ -99,7 +106,7 @@ export default function App() {
   const handleRetry = () => {
     setShowExamResult(false);
     setCurrentExercise(0);
-    setExerciseOrder(shuffleNonTrivial(levelsState[currentLevel].exercises.map((_, i) => i)));
+    setExerciseOrder(shuffleNonTrivial(currentLevelExercises.map((_, i) => i)));
     setCorrectCount(0);
     setAttemptsLeft(maxAttempts);
     setExamErrors([]);
@@ -119,7 +126,7 @@ export default function App() {
   return (
     <div className="p-4">
       {isExam && (
-        <ExamSidebar correct={correctCount} total={levelsState[currentLevel].exercises.length} threshold={passThreshold} />
+        <ExamSidebar correct={correctCount} total={currentLevelExercises.length} threshold={passThreshold} />
       )}
       <div className="max-w-xl mx-auto mt-10" style={{ transform: 'scale(1.05)' }}>
         <h2 className="text-xl font-bold mb-4">{levelsState[currentLevel]?.title}</h2>

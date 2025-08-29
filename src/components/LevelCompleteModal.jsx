@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 export default function LevelCompleteModal({ open, onContinue, autoAdvanceMs=3000 }) {
-  React.useEffect(() => {
+  useEffect(() => {
     if (!open) return;
     const t = setTimeout(onContinue, autoAdvanceMs);
     return () => clearTimeout(t);

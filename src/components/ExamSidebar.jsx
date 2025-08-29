@@ -1,3 +1,4 @@
+import React from 'react';
 export default function ExamSidebar({ correct, total, threshold = 0.8 }) {
   const pct = total ? Math.round((correct/total)*100) : 0;
   const passAt = Math.round(threshold*100);
