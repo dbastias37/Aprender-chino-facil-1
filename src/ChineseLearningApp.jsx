@@ -2,6 +2,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { shuffleNonTrivial } from './utils/shuffle';
 import { Book, Heart, Star, Trophy, X, Search, AlertTriangle } from 'lucide-react';
+import LevelCompleteModal from './components/LevelCompleteModal.jsx';
+import ExamResultModal from './components/ExamResultModal.jsx';
 
 // ✅ Datos corregidos y estructurados (SIN CAMBIAR CONTENIDO, solo orden/estructura)
 const chineseData = {
@@ -120,6 +122,18 @@ const chineseData = {
     'preguntar': { chinese: '问', pinyin: 'wèn' },
     'responder': { chinese: '回答', pinyin: 'huí dá' }
   },
+  numberMap: [
+    { spanish: 'Uno', chinese: '一', pinyin: 'yī' },
+    { spanish: 'Dos', chinese: '二', pinyin: 'èr' },
+    { spanish: 'Tres', chinese: '三', pinyin: 'sān' },
+    { spanish: 'Cuatro', chinese: '四', pinyin: 'sì' },
+    { spanish: 'Cinco', chinese: '五', pinyin: 'wǔ' },
+    { spanish: 'Seis', chinese: '六', pinyin: 'liù' },
+    { spanish: 'Siete', chinese: '七', pinyin: 'qī' },
+    { spanish: 'Ocho', chinese: '八', pinyin: 'bā' },
+    { spanish: 'Nueve', chinese: '九', pinyin: 'jiǔ' },
+    { spanish: 'Diez', chinese: '十', pinyin: 'shí' }
+  ],
   levels: [
     // 1) Saludos Básicos
     {
@@ -268,37 +282,9 @@ const chineseData = {
     {
       id: 2,
       title: 'Números Básicos',
-      exercises: [
-        { id: 1, type: 'construct', spanish: 'Uno', chinese: '一', pinyin: 'yī', words: [
-          { char: '一', pinyin: 'yī', uniqueId: 'yi1' }, { char: '二', pinyin: 'èr', uniqueId: 'er1' }, { char: '三', pinyin: 'sān', uniqueId: 'san1' }, { char: '四', pinyin: 'sì', uniqueId: 'si1' }
-        ]},
-        { id: 2, type: 'construct', spanish: 'Dos', chinese: '二', pinyin: 'èr', words: [
-          { char: '一', pinyin: 'yī', uniqueId: 'yi2' }, { char: '二', pinyin: 'èr', uniqueId: 'er2' }, { char: '三', pinyin: 'sān', uniqueId: 'san2' }, { char: '四', pinyin: 'sì', uniqueId: 'si2' }
-        ]},
-        { id: 3, type: 'construct', spanish: 'Tres', chinese: '三', pinyin: 'sān', words: [
-          { char: '一', pinyin: 'yī', uniqueId: 'yi3' }, { char: '二', pinyin: 'èr', uniqueId: 'er3' }, { char: '三', pinyin: 'sān', uniqueId: 'san3' }, { char: '四', pinyin: 'sì', uniqueId: 'si3' }
-        ]},
-        { id: 4, type: 'construct', spanish: 'Cuatro', chinese: '四', pinyin: 'sì', words: [
-          { char: '一', pinyin: 'yī', uniqueId: 'yi4' }, { char: '二', pinyin: 'èr', uniqueId: 'er4' }, { char: '三', pinyin: 'sān', uniqueId: 'san4' }, { char: '四', pinyin: 'sì', uniqueId: 'si4' }
-        ]},
-        { id: 5, type: 'construct', spanish: 'Cinco', chinese: '五', pinyin: 'wǔ', words: [
-          { char: '五', pinyin: 'wǔ', uniqueId: 'wu1' }, { char: '六', pinyin: 'liù', uniqueId: 'liu1' }, { char: '七', pinyin: 'qī', uniqueId: 'qi2' }, { char: '八', pinyin: 'bā', uniqueId: 'ba1' }
-        ]},
-        { id: 6, type: 'construct', spanish: 'Seis', chinese: '六', pinyin: 'liù', words: [
-          { char: '五', pinyin: 'wǔ', uniqueId: 'wu2' }, { char: '六', pinyin: 'liù', uniqueId: 'liu2' }, { char: '七', pinyin: 'qī', uniqueId: 'qi3' }, { char: '八', pinyin: 'bā', uniqueId: 'ba2' }
-        ]},
-        { id: 7, type: 'construct', spanish: 'Siete', chinese: '七', pinyin: 'qī', words: [
-          { char: '五', pinyin: 'wǔ', uniqueId: 'wu3' }, { char: '六', pinyin: 'liù', uniqueId: 'liu3' }, { char: '七', pinyin: 'qī', uniqueId: 'qi4' }, { char: '八', pinyin: 'bā', uniqueId: 'ba3' }
-        ]},
-        { id: 8, type: 'construct', spanish: 'Ocho', chinese: '八', pinyin: 'bā', words: [
-          { char: '五', pinyin: 'wǔ', uniqueId: 'wu4' }, { char: '六', pinyin: 'liù', uniqueId: 'liu4' }, { char: '七', pinyin: 'qī', uniqueId: 'qi5' }, { char: '八', pinyin: 'bā', uniqueId: 'ba4' }
-        ]}
-      ],
-      exam: [
-        { question: '三', options: ['Dos', 'Tres', 'Cuatro', 'Cinco'], correct: 1 },
-        { question: '七', options: ['Seis', 'Siete', 'Ocho', 'Nueve'], correct: 1 },
-        { question: '十', options: ['Ocho', 'Nueve', 'Diez', 'Once'], correct: 2 }
-      ]
+      exercises: generateNumberExercises(),
+      exam: generateNumberExam(),
+      passScore: 6
     },
 
     // 3) Familia
@@ -451,6 +437,35 @@ const chineseData = {
   ]
 };
 
+function generateNumberExercises() {
+  const nums = shuffleNonTrivial(chineseData.numberMap.slice());
+  return nums.map((n, idx) => {
+    const distractors = shuffleNonTrivial(chineseData.numberMap.filter(m => m.chinese !== n.chinese))
+      .slice(0,3)
+      .map(d => ({ char: d.chinese, pinyin: d.pinyin, uniqueId: `d-${idx}-${d.chinese}` }));
+    const words = shuffleNonTrivial([
+      { char: n.chinese, pinyin: n.pinyin, uniqueId: `num-${idx}` },
+      ...distractors
+    ]);
+    return {
+      id: idx + 1,
+      type: 'construct',
+      spanish: n.spanish,
+      chinese: n.chinese,
+      pinyin: n.pinyin,
+      words
+    };
+  });
+}
+
+function generateNumberExam() {
+  const nums = shuffleNonTrivial(chineseData.numberMap.slice());
+  return nums.map(n => {
+    const options = shuffleNonTrivial(chineseData.numberMap.map(o => o.spanish));
+    return { question: n.chinese, pinyin: n.pinyin, options, correct: options.indexOf(n.spanish) };
+  }).slice(0,10);
+}
+
 const ChineseLearningApp = () => {
   const [showWelcome, setShowWelcome] = useState(true);
   const [currentLevel, setCurrentLevel] = useState(1);
@@ -469,6 +484,9 @@ const ChineseLearningApp = () => {
   const [gameOverType, setGameOverType] = useState(null); // 'noLives', 'failedExam'
   const [randomizedExercises, setRandomizedExercises] = useState({});
   const [dataIssues, setDataIssues] = useState([]); // ✅ Panel de test/validación
+  const [showLevelComplete, setShowLevelComplete] = useState(false);
+  const [examAnswers, setExamAnswers] = useState([]);
+  const [examSummary, setExamSummary] = useState(null);
 
   const level = chineseData.levels.find((l) => l.id === currentLevel);
 
@@ -647,9 +665,10 @@ const ChineseLearningApp = () => {
     const correct = userAnswer === correctAnswer;
 
     setIsCorrect(correct);
-    setShowResult(true);
-
-    if (!correct) {
+    if (correct) {
+      setShowLevelComplete(true);
+    } else {
+      setShowResult(true);
       const newLives = Math.max(0, lives - 1);
       setLives(newLives);
       if (newLives === 0) {
@@ -659,57 +678,66 @@ const ChineseLearningApp = () => {
         }, 1200);
         return;
       }
-    }
-
-    setTimeout(() => {
-      setShowResult(false);
-      if (correct) {
-        if (currentExercise >= totalExercises - 1) {
-          setShowExam(true);
-          setLevelProgress({ ...levelProgress, [currentLevel]: totalExercises });
-        } else {
-          const next = currentExercise + 1;
-          setCurrentExercise(next);
-          setLevelProgress({ ...levelProgress, [currentLevel]: next });
-        }
-      } else {
+      setTimeout(() => {
+        setShowResult(false);
         const reshuffled = shuffleNonTrivial(targetChars);
         setTiles(reshuffled.map((char) => ({ char, used: false })));
-      }
-      setAttempt([]);
-    }, 800);
+        setAttempt([]);
+      }, 800);
+    }
+  };
+
+  const advanceExercise = () => {
+    setShowLevelComplete(false);
+    if (currentExercise >= totalExercises - 1) {
+      setShowExam(true);
+      setLevelProgress({ ...levelProgress, [currentLevel]: totalExercises });
+    } else {
+      const next = currentExercise + 1;
+      setCurrentExercise(next);
+      setLevelProgress({ ...levelProgress, [currentLevel]: next });
+    }
+    setAttempt([]);
   };
 
   const handleExamAnswer = (selectedOption) => {
     const examData = level.exam[examQuestion];
     const correct = selectedOption === examData.correct;
-
-    if (correct) {
-      if (examQuestion < level.exam.length - 1) {
-        setExamQuestion(examQuestion + 1);
-      } else {
-        const newLives = lives + 3;
-        setLives(newLives);
-        const nextLevel = currentLevel + 1;
-        if (chineseData.levels.find((l) => l.id === nextLevel)) {
-          goToLevel(nextLevel);
-        } else {
-          setCurrentExercise(0);
-        }
-        setShowExam(false);
-        setExamQuestion(0);
-        setAttemptsLeft(4);
-      }
+    const record = {
+      isCorrect: correct,
+      correct: examData.options[examData.correct],
+      user: examData.options[selectedOption],
+      pinyin: examData.pinyin
+    };
+    const newAnswers = [...examAnswers, record];
+    if (examQuestion < level.exam.length - 1) {
+      setExamQuestion(examQuestion + 1);
+      setExamAnswers(newAnswers);
     } else {
-      const newAttempts = attemptsLeft - 1;
-      setAttemptsLeft(newAttempts);
-      if (newAttempts <= 0) {
-        setGameOverType('failedExam');
-        setShowExam(false);
-        setExamQuestion(0);
-        setAttemptsLeft(4);
-      }
+      const correctCount = newAnswers.filter((a) => a.isCorrect).length;
+      const passScore = level.passScore || level.exam.length;
+      const passed = correctCount >= passScore;
+      setExamSummary({ passed, errors: newAnswers.filter((a) => !a.isCorrect) });
+      setShowExam(false);
+      setExamQuestion(0);
+      setExamAnswers([]);
+      setAttemptsLeft(4);
     }
+  };
+
+  const retryExam = () => {
+    setExamSummary(null);
+    setShowExam(true);
+  };
+  const selectLevel = () => {
+    setExamSummary(null);
+    setShowExam(false);
+    goToLevel(1);
+  };
+  const continueCourse = () => {
+    setExamSummary(null);
+    const nextLevel = currentLevel + 1;
+    goToLevel(nextLevel);
   };
 
   const restartLevel = () => {
@@ -722,6 +750,8 @@ const ChineseLearningApp = () => {
     setShowExam(false);
     setExamQuestion(0);
     setAttemptsLeft(4);
+    setShowLevelComplete(false);
+    setExamSummary(null);
 
     const levelData = chineseData.levels.find((l) => l.id === currentLevel);
     if (levelData && levelData.exercises) {
@@ -741,6 +771,8 @@ const ChineseLearningApp = () => {
       setShowResult(false);
       setShowExam(false);
       setExamQuestion(0);
+      setShowLevelComplete(false);
+      setExamSummary(null);
       if (!randomizedExercises[levelNum] && levelData.exercises) {
         const shuffled = shuffleArray(levelData.exercises);
         setRandomizedExercises((prev) => ({ ...prev, [levelNum]: shuffled }));
@@ -1018,10 +1050,10 @@ const ChineseLearningApp = () => {
         {/* Modal de resultado */}
         {showResult && (
           <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex items-center justify-center p-4">
-            <div className={`bg-white rounded-2xl shadow-2xl p-8 text-center max-w-md w-full ${isCorrect ? 'border-4 border-green-400' : 'border-4 border-red-400'}`}>
-              <div className="text-6xl mb-4">{isCorrect ? '🎉' : '😔'}</div>
-              <h3 className={`text-2xl font-bold mb-4 ${isCorrect ? 'text-green-600' : 'text-red-600'}`}>{isCorrect ? '¡Correcto!' : '¡Incorrecto!'}</h3>
-              {!isCorrect && exercise && (
+            <div className="bg-white rounded-2xl shadow-2xl p-8 text-center max-w-md w-full border-4 border-red-400">
+              <div className="text-6xl mb-4">😔</div>
+              <h3 className="text-2xl font-bold mb-4 text-red-600">¡Incorrecto!</h3>
+              {exercise && (
                 <p className="text-gray-600 mb-4">
                   La respuesta correcta era: <span className="font-semibold text-red-600">{exercise.chinese}</span>
                 </p>
@@ -1029,6 +1061,8 @@ const ChineseLearningApp = () => {
             </div>
           </div>
         )}
+        <LevelCompleteModal open={showLevelComplete} onContinue={advanceExercise} />
+        <ExamResultModal open={!!examSummary} passed={examSummary?.passed} errors={examSummary?.errors} onRetry={retryExam} onSelectLevel={selectLevel} onContinue={continueCourse} />
 
         {/* Selector de niveles (desbloqueo dinámico según total de ejercicios) */}
         <div className="mt-12">
