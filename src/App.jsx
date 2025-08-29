@@ -337,17 +337,40 @@ const getExamStable = (level) => {
   return ex;
 };
 const level = chineseData.levels.find((l) => l.id === currentLevel);
-// Helpers examen robustos (6 preguntas)
 
+
+
+  
+// === Exam helpers (6 preguntas) — estable por nivel ===
+const buildExamFromExercises = (exercises, n = 6) => {
+  const pool = (exercises || []).map(ex => ({ q: ex.chinese, ans: ex.spanish }));
+  const pick = (arr, k) => {
+    const a = Array.isArray(arr) ? [...arr] : [];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a.slice(0, k);
+  };
+  return pick(pool, Math.min(n, pool.length)).map((item) => {
+    const distractors = pool.filter(p => p.ans !== item.ans).map(p => p.ans);
+    const options = pick([item.ans, ...pick(distractors, 3)], 4);
+    const correct = options.indexOf(item.ans);
+    return { question: item.q, options, correct };
   });
 };
-const getExam = (level) => {
-  if (level && Array.isArray(level.exam) && level.exam.length >= 6) return level.exam.slice(0, 6);
-  return buildExamFromExercises(level?.exercises || [], 6);
+const [examCache, setExamCache] = React.useState({});
+const getExamStable = (level) => {
+  if (!level) return [];
+  const id = level.id || 0;
+  if (examCache[id]) return examCache[id];
+  const ex = (Array.isArray(level.exam) && level.exam.length >= 6)
+    ? level.exam.slice(0,6)
+    : buildExamFromExercises(level.exercises || [], 6);
+  setExamCache(prev => ({ ...prev, [id]: ex }));
+  return ex;
 };
-
-
-  const shuffleArray = (array) => {
+const shuffleArray = (array) => {
     const shuffled = [...array];
     for (let i = shuffled.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
