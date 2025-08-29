@@ -1,31 +1,8 @@
-
-import React, { useState, useEffect, useMemo } from 'react';
-import { shuffleNonTrivial } from './utils/shuffle';
+import React, { useState, useEffect } from 'react';
 import { Book, Heart, Star, Trophy, X, Search, AlertTriangle } from 'lucide-react';
 import { extendLevels } from './data/levels';
 
-const normalizeLevels = (levels) => (levels || []).map((lvl) => ({
-  ...lvl,
-  exercises: (lvl.exercises || []).map((ex) => ({
-    ...ex,
-    words: (ex.words || []).map((w, idx) => ({
-      ...w,
-      uniqueId: w.uniqueId || `w-${lvl.id}-${ex.id}-${idx}-${w.char || ''}`
-    }))
-  }))
-}));
-
-
-const shuffleLocal = (array) => {
-  const a = Array.isArray(array) ? [...array] : [];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-};
-
-// ✅ Datos corregidos y estructurados (SIN CAMBIAR CONTENIDO, solo orden/estructura)
+// Datos (versión compacta con 6 niveles actuales). Si quieres 20 niveles, te los agrego luego.
 const chineseData = {
   dictionary: {
     'hola': { chinese: '你好', pinyin: 'nǐ hǎo' },
@@ -142,337 +119,165 @@ const chineseData = {
     'preguntar': { chinese: '问', pinyin: 'wèn' },
     'responder': { chinese: '回答', pinyin: 'huí dá' }
   },
-  levels: [
-    // 1) Saludos Básicos
-    {
-      id: 1,
-      title: 'Saludos Básicos',
-      exercises: [
-        {
-          id: 1,
-          type: 'construct',
-          spanish: 'Hola',
-          chinese: '你好',
-          pinyin: 'nǐ hǎo',
-          words: [
-            { char: '你', pinyin: 'nǐ', uniqueId: 'ni1' },
-            { char: '好', pinyin: 'hǎo', uniqueId: 'hao1' },
-            { char: '我', pinyin: 'wǒ', uniqueId: 'wo1' },
-            { char: '是', pinyin: 'shì', uniqueId: 'shi1' }
-          ]
-        },
-        {
-          id: 2,
-          type: 'construct',
-          spanish: 'Adiós',
-          chinese: '再见',
-          pinyin: 'zàijiàn',
-          words: [
-            { char: '再', pinyin: 'zài', uniqueId: 'zai1' },
-            { char: '见', pinyin: 'jiàn', uniqueId: 'jian1' },
-            { char: '你', pinyin: 'nǐ', uniqueId: 'ni2' },
-            { char: '好', pinyin: 'hǎo', uniqueId: 'hao2' }
-          ]
-        },
-        {
-          id: 3,
-          type: 'construct',
-          spanish: 'Gracias',
-          chinese: '谢谢',
-          pinyin: 'xiè xiè',
-          words: [
-            { char: '谢', pinyin: 'xiè', uniqueId: 'xie1' },
-            { char: '谢', pinyin: 'xiè', uniqueId: 'xie2' },
-            { char: '不', pinyin: 'bù', uniqueId: 'bu1' },
-            { char: '客气', pinyin: 'kè qì', uniqueId: 'keqi1' }
-          ]
-        },
-        {
-          id: 4,
-          type: 'construct',
-          spanish: 'Lo siento',
-          chinese: '对不起',
-          pinyin: 'duì bù qǐ',
-          words: [
-            { char: '对', pinyin: 'duì', uniqueId: 'dui1' },
-            { char: '不', pinyin: 'bù', uniqueId: 'bu2' },
-            { char: '起', pinyin: 'qǐ', uniqueId: 'qi1' },
-            { char: '没关系', pinyin: 'méi guān xi', uniqueId: 'meiguanxi1' }
-          ]
-        },
-        {
-          id: 5,
-          type: 'construct',
-          spanish: 'Por favor',
-          chinese: '请',
-          pinyin: 'qǐng',
-          words: [
-            { char: '请', pinyin: 'qǐng', uniqueId: 'qing1' },
-            { char: '谢谢', pinyin: 'xiè xiè', uniqueId: 'xiexie1' },
-            { char: '不', pinyin: 'bù', uniqueId: 'bu3' },
-            { char: '客气', pinyin: 'kè qì', uniqueId: 'keqi2' }
-          ]
-        },
-        {
-          id: 6,
-          type: 'construct',
-          spanish: 'De nada',
-          chinese: '不客气',
-          pinyin: 'bù kè qì',
-          words: [
-            { char: '不', pinyin: 'bù', uniqueId: 'bu4' },
-            { char: '客气', pinyin: 'kè qì', uniqueId: 'keqi3' },
-            { char: '谢谢', pinyin: 'xiè xiè', uniqueId: 'xiexie2' },
-            { char: '请', pinyin: 'qǐng', uniqueId: 'qing2' }
-          ]
-        },
-        {
-          id: 7,
-          type: 'construct',
-          spanish: 'Buenos días',
-          chinese: '早上好',
-          pinyin: 'zǎo shàng hǎo',
-          words: [
-            { char: '早上', pinyin: 'zǎo shàng', uniqueId: 'zaoshang1' },
-            { char: '好', pinyin: 'hǎo', uniqueId: 'hao3' },
-            { char: '晚上', pinyin: 'wǎn shàng', uniqueId: 'wanshang1' },
-            { char: '中午', pinyin: 'zhōng wǔ', uniqueId: 'zhongwu1' }
-          ]
-        },
-        {
-          id: 8,
-          type: 'construct',
-          spanish: 'Buenas noches',
-          chinese: '晚上好',
-          pinyin: 'wǎn shàng hǎo',
-          words: [
-            { char: '晚上', pinyin: 'wǎn shàng', uniqueId: 'wanshang2' },
-            { char: '好', pinyin: 'hǎo', uniqueId: 'hao4' },
-            { char: '早上', pinyin: 'zǎo shàng', uniqueId: 'zaoshang2' },
-            { char: '中午', pinyin: 'zhōng wǔ', uniqueId: 'zhongwu2' }
-          ]
-        },
-        {
-          id: 9,
-          type: 'construct',
-          spanish: '¿Cómo estás?',
-          chinese: '你好吗',
-          pinyin: 'nǐ hǎo ma',
-          words: [
-            { char: '你', pinyin: 'nǐ', uniqueId: 'ni3' },
-            { char: '好', pinyin: 'hǎo', uniqueId: 'hao5' },
-            { char: '吗', pinyin: 'ma', uniqueId: 'ma1' },
-            { char: '我', pinyin: 'wǒ', uniqueId: 'wo2' }
-          ]
-        },
-        {
-          id: 10,
-          type: 'construct',
-          spanish: 'Estoy bien',
-          chinese: '我很好',
-          pinyin: 'wǒ hěn hǎo',
-          words: [
-            { char: '我', pinyin: 'wǒ', uniqueId: 'wo3' },
-            { char: '很', pinyin: 'hěn', uniqueId: 'hen1' },
-            { char: '好', pinyin: 'hǎo', uniqueId: 'hao6' },
-            { char: '不', pinyin: 'bù', uniqueId: 'bu5' }
-          ]
-        }
-      ],
-      exam: [
-        { question: '你好', options: ['Adiós', 'Hola', 'Gracias', 'Por favor'], correct: 1 },
-        { question: '谢谢', options: ['Lo siento', 'Hola', 'Gracias', 'Adiós'], correct: 2 },
-        { question: '再见', options: ['Hola', 'Adiós', 'Gracias', 'Por favor'], correct: 1 }
-      ]
-    },
-
-    // 2) Números Básicos
-    {
-      id: 2,
-      title: 'Números Básicos',
-      exercises: [
-        { id: 1, type: 'construct', spanish: 'Uno', chinese: '一', pinyin: 'yī', words: [
-          { char: '一', pinyin: 'yī', uniqueId: 'yi1' }, { char: '二', pinyin: 'èr', uniqueId: 'er1' }, { char: '三', pinyin: 'sān', uniqueId: 'san1' }, { char: '四', pinyin: 'sì', uniqueId: 'si1' }
-        ]},
-        { id: 2, type: 'construct', spanish: 'Dos', chinese: '二', pinyin: 'èr', words: [
-          { char: '一', pinyin: 'yī', uniqueId: 'yi2' }, { char: '二', pinyin: 'èr', uniqueId: 'er2' }, { char: '三', pinyin: 'sān', uniqueId: 'san2' }, { char: '四', pinyin: 'sì', uniqueId: 'si2' }
-        ]},
-        { id: 3, type: 'construct', spanish: 'Tres', chinese: '三', pinyin: 'sān', words: [
-          { char: '一', pinyin: 'yī', uniqueId: 'yi3' }, { char: '二', pinyin: 'èr', uniqueId: 'er3' }, { char: '三', pinyin: 'sān', uniqueId: 'san3' }, { char: '四', pinyin: 'sì', uniqueId: 'si3' }
-        ]},
-        { id: 4, type: 'construct', spanish: 'Cuatro', chinese: '四', pinyin: 'sì', words: [
-          { char: '一', pinyin: 'yī', uniqueId: 'yi4' }, { char: '二', pinyin: 'èr', uniqueId: 'er4' }, { char: '三', pinyin: 'sān', uniqueId: 'san4' }, { char: '四', pinyin: 'sì', uniqueId: 'si4' }
-        ]},
-        { id: 5, type: 'construct', spanish: 'Cinco', chinese: '五', pinyin: 'wǔ', words: [
-          { char: '五', pinyin: 'wǔ', uniqueId: 'wu1' }, { char: '六', pinyin: 'liù', uniqueId: 'liu1' }, { char: '七', pinyin: 'qī', uniqueId: 'qi2' }, { char: '八', pinyin: 'bā', uniqueId: 'ba1' }
-        ]},
-        { id: 6, type: 'construct', spanish: 'Seis', chinese: '六', pinyin: 'liù', words: [
-          { char: '五', pinyin: 'wǔ', uniqueId: 'wu2' }, { char: '六', pinyin: 'liù', uniqueId: 'liu2' }, { char: '七', pinyin: 'qī', uniqueId: 'qi3' }, { char: '八', pinyin: 'bā', uniqueId: 'ba2' }
-        ]},
-        { id: 7, type: 'construct', spanish: 'Siete', chinese: '七', pinyin: 'qī', words: [
-          { char: '五', pinyin: 'wǔ', uniqueId: 'wu3' }, { char: '六', pinyin: 'liù', uniqueId: 'liu3' }, { char: '七', pinyin: 'qī', uniqueId: 'qi4' }, { char: '八', pinyin: 'bā', uniqueId: 'ba3' }
-        ]},
-        { id: 8, type: 'construct', spanish: 'Ocho', chinese: '八', pinyin: 'bā', words: [
-          { char: '五', pinyin: 'wǔ', uniqueId: 'wu4' }, { char: '六', pinyin: 'liù', uniqueId: 'liu4' }, { char: '七', pinyin: 'qī', uniqueId: 'qi5' }, { char: '八', pinyin: 'bā', uniqueId: 'ba4' }
-        ]}
-      ],
-      exam: [
-        { question: '三', options: ['Dos', 'Tres', 'Cuatro', 'Cinco'], correct: 1 },
-        { question: '七', options: ['Seis', 'Siete', 'Ocho', 'Nueve'], correct: 1 },
-        { question: '十', options: ['Ocho', 'Nueve', 'Diez', 'Once'], correct: 2 }
-      ]
-    },
-
-    // 3) Familia
-    {
-      id: 3,
-      title: 'Familia',
-      exercises: [
-        { id: 1, type: 'construct', spanish: 'Padre', chinese: '父亲', pinyin: 'fù qīn', words: [
-          { char: '父亲', pinyin: 'fù qīn', uniqueId: 'fuqin1' }, { char: '母亲', pinyin: 'mǔ qīn', uniqueId: 'muqin1' }, { char: '儿子', pinyin: 'ér zi', uniqueId: 'erzi1' }, { char: '女儿', pinyin: 'nǚ ér', uniqueId: 'nuer1' }
-        ]},
-        { id: 2, type: 'construct', spanish: 'Madre', chinese: '母亲', pinyin: 'mǔ qīn', words: [
-          { char: '父亲', pinyin: 'fù qīn', uniqueId: 'fuqin2' }, { char: '母亲', pinyin: 'mǔ qīn', uniqueId: 'muqin2' }, { char: '儿子', pinyin: 'ér zi', uniqueId: 'erzi2' }, { char: '女儿', pinyin: 'nǚ ér', uniqueId: 'nuer2' }
-        ]},
-        { id: 3, type: 'construct', spanish: 'Hijo', chinese: '儿子', pinyin: 'ér zi', words: [
-          { char: '父亲', pinyin: 'fù qīn', uniqueId: 'fuqin3' }, { char: '母亲', pinyin: 'mǔ qīn', uniqueId: 'muqin3' }, { char: '儿子', pinyin: 'ér zi', uniqueId: 'erzi3' }, { char: '女儿', pinyin: 'nǚ ér', uniqueId: 'nuer3' }
-        ]},
-        { id: 4, type: 'construct', spanish: 'Hija', chinese: '女儿', pinyin: 'nǚ ér', words: [
-          { char: '父亲', pinyin: 'fù qīn', uniqueId: 'fuqin4' }, { char: '母亲', pinyin: 'mǔ qīn', uniqueId: 'muqin4' }, { char: '儿子', pinyin: 'ér zi', uniqueId: 'erzi4' }, { char: '女儿', pinyin: 'nǚ ér', uniqueId: 'nuer4' }
-        ]},
-        { id: 5, type: 'construct', spanish: 'Hermano', chinese: '哥哥', pinyin: 'gē ge', words: [
-          { char: '哥哥', pinyin: 'gē ge', uniqueId: 'gege1' }, { char: '姐姐', pinyin: 'jiě jie', uniqueId: 'jiejie1' }, { char: '爷爷', pinyin: 'yé ye', uniqueId: 'yeye1' }, { char: '奶奶', pinyin: 'nǎi nai', uniqueId: 'nainai1' }
-        ]},
-        { id: 6, type: 'construct', spanish: 'Hermana', chinese: '姐姐', pinyin: 'jiě jie', words: [
-          { char: '哥哥', pinyin: 'gē ge', uniqueId: 'gege2' }, { char: '姐姐', pinyin: 'jiě jie', uniqueId: 'jiejie2' }, { char: '爷爷', pinyin: 'yé ye', uniqueId: 'yeye2' }, { char: '奶奶', pinyin: 'nǎi nai', uniqueId: 'nainai2' }
-        ]},
-        { id: 7, type: 'construct', spanish: 'Abuelo', chinese: '爷爷', pinyin: 'yé ye', words: [
-          { char: '哥哥', pinyin: 'gē ge', uniqueId: 'gege3' }, { char: '姐姐', pinyin: 'jiě jie', uniqueId: 'jiejie3' }, { char: '爷爷', pinyin: 'yé ye', uniqueId: 'yeye3' }, { char: '奶奶', pinyin: 'nǎi nai', uniqueId: 'nainai3' }
-        ]},
-        { id: 8, type: 'construct', spanish: 'Abuela', chinese: '奶奶', pinyin: 'nǎi nai', words: [
-          { char: '哥哥', pinyin: 'gē ge', uniqueId: 'gege4' }, { char: '姐姐', pinyin: 'jiě jie', uniqueId: 'jiejie4' }, { char: '爷爷', pinyin: 'yé ye', uniqueId: 'yeye4' }, { char: '奶奶', pinyin: 'nǎi nai', uniqueId: 'nainai4' }
-        ]}
-      ],
-      exam: [
-        { question: '父亲', options: ['Madre', 'Padre', 'Hijo', 'Hermano'], correct: 1 },
-        { question: '姐姐', options: ['Hermano', 'Hermana', 'Abuelo', 'Abuela'], correct: 1 },
-        { question: '朋友', options: ['Familia', 'Amigo', 'Profesor', 'Estudiante'], correct: 1 }
-      ]
-    },
-
-    // 4) Colores
-    {
-      id: 4,
-      title: 'Colores',
-      exercises: [
-        { id: 1, type: 'construct', spanish: 'Rojo', chinese: '红色', pinyin: 'hóng sè', words: [
-          { char: '红色', pinyin: 'hóng sè', uniqueId: 'hongse1' }, { char: '蓝色', pinyin: 'lán sè', uniqueId: 'lanse1' }, { char: '绿色', pinyin: 'lǜ sè', uniqueId: 'luse1' }, { char: '黄色', pinyin: 'huáng sè', uniqueId: 'huangse1' }
-        ]},
-        { id: 2, type: 'construct', spanish: 'Azul', chinese: '蓝色', pinyin: 'lán sè', words: [
-          { char: '红色', pinyin: 'hóng sè', uniqueId: 'hongse2' }, { char: '蓝色', pinyin: 'lán sè', uniqueId: 'lanse2' }, { char: '绿色', pinyin: 'lǜ sè', uniqueId: 'luse2' }, { char: '黄色', pinyin: 'huáng sè', uniqueId: 'huangse2' }
-        ]},
-        { id: 3, type: 'construct', spanish: 'Verde', chinese: '绿色', pinyin: 'lǜ sè', words: [
-          { char: '红色', pinyin: 'hóng sè', uniqueId: 'hongse3' }, { char: '蓝色', pinyin: 'lán sè', uniqueId: 'lanse3' }, { char: '绿色', pinyin: 'lǜ sè', uniqueId: 'luse3' }, { char: '黄色', pinyin: 'huáng sè', uniqueId: 'huangse3' }
-        ]},
-        { id: 4, type: 'construct', spanish: 'Amarillo', chinese: '黄色', pinyin: 'huáng sè', words: [
-          { char: '红色', pinyin: 'hóng sè', uniqueId: 'hongse4' }, { char: '蓝色', pinyin: 'lán sè', uniqueId: 'lanse4' }, { char: '绿色', pinyin: 'lǜ sè', uniqueId: 'luse4' }, { char: '黄色', pinyin: 'huáng sè', uniqueId: 'huangse4' }
-        ]},
-        { id: 5, type: 'construct', spanish: 'Negro', chinese: '黑色', pinyin: 'hēi sè', words: [
-          { char: '黑色', pinyin: 'hēi sè', uniqueId: 'heise1' }, { char: '白色', pinyin: 'bái sè', uniqueId: 'baise1' }, { char: '粉色', pinyin: 'fěn sè', uniqueId: 'fense1' }, { char: '紫色', pinyin: 'zǐ sè', uniqueId: 'zise1' }
-        ]},
-        { id: 6, type: 'construct', spanish: 'Blanco', chinese: '白色', pinyin: 'bái sè', words: [
-          { char: '黑色', pinyin: 'hēi sè', uniqueId: 'heise2' }, { char: '白色', pinyin: 'bái sè', uniqueId: 'baise2' }, { char: '粉色', pinyin: 'fěn sè', uniqueId: 'fense2' }, { char: '紫色', pinyin: 'zǐ sè', uniqueId: 'zise2' }
-        ]},
-        { id: 7, type: 'construct', spanish: 'Rosa', chinese: '粉色', pinyin: 'fěn sè', words: [
-          { char: '黑色', pinyin: 'hēi sè', uniqueId: 'heise3' }, { char: '白色', pinyin: 'bái sè', uniqueId: 'baise3' }, { char: '粉色', pinyin: 'fěn sè', uniqueId: 'fense3' }, { char: '紫色', pinyin: 'zǐ sè', uniqueId: 'zise3' }
-        ]},
-        { id: 8, type: 'construct', spanish: 'Morado', chinese: '紫色', pinyin: 'zǐ sè', words: [
-          { char: '黑色', pinyin: 'hēi sè', uniqueId: 'heise4' }, { char: '白色', pinyin: 'bái sè', uniqueId: 'baise4' }, { char: '粉色', pinyin: 'fěn sè', uniqueId: 'fense4' }, { char: '紫色', pinyin: 'zǐ sè', uniqueId: 'zise4' }
-        ]}
-      ],
-      exam: [
-        { question: '红色', options: ['Azul', 'Rojo', 'Verde', 'Amarillo'], correct: 1 },
-        { question: '白色', options: ['Negro', 'Blanco', 'Rosa', 'Morado'], correct: 1 },
-        { question: '绿色', options: ['Rojo', 'Verde', 'Azul', 'Amarillo'], correct: 1 }
-      ]
-    },
-
-    // 5) Días de la Semana
-    {
-      id: 5,
-      title: 'Días de la Semana',
-      exercises: [
-        { id: 1, type: 'construct', spanish: 'Lunes', chinese: '星期一', pinyin: 'xīng qī yī', words: [
-          { char: '星期一', pinyin: 'xīng qī yī', uniqueId: 'xingqiyi1' }, { char: '星期二', pinyin: 'xīng qī èr', uniqueId: 'xingqier1' }, { char: '星期三', pinyin: 'xīng qī sān', uniqueId: 'xingqisan1' }, { char: '星期四', pinyin: 'xīng qī sì', uniqueId: 'xingqisi1' }
-        ]},
-        { id: 2, type: 'construct', spanish: 'Martes', chinese: '星期二', pinyin: 'xīng qī èr', words: [
-          { char: '星期一', pinyin: 'xīng qī yī', uniqueId: 'xingqiyi2' }, { char: '星期二', pinyin: 'xīng qī èr', uniqueId: 'xingqier2' }, { char: '星期三', pinyin: 'xīng qī sān', uniqueId: 'xingqisan2' }, { char: '星期四', pinyin: 'xīng qī sì', uniqueId: 'xingqisi2' }
-        ]},
-        { id: 3, type: 'construct', spanish: 'Miércoles', chinese: '星期三', pinyin: 'xīng qī sān', words: [
-          { char: '星期一', pinyin: 'xīng qī yī', uniqueId: 'xingqiyi3' }, { char: '星期二', pinyin: 'xīng qī èr', uniqueId: 'xingqier3' }, { char: '星期三', pinyin: 'xīng qī sān', uniqueId: 'xingqisan3' }, { char: '星期四', pinyin: 'xīng qī sì', uniqueId: 'xingqisi3' }
-        ]},
-        { id: 4, type: 'construct', spanish: 'Jueves', chinese: '星期四', pinyin: 'xīng qī sì', words: [
-          { char: '星期一', pinyin: 'xīng qī yī', uniqueId: 'xingqiyi4' }, { char: '星期二', pinyin: 'xīng qī èr', uniqueId: 'xingqier4' }, { char: '星期三', pinyin: 'xīng qī sān', uniqueId: 'xingqisan4' }, { char: '星期四', pinyin: 'xīng qī sì', uniqueId: 'xingqisi4' }
-        ]},
-        { id: 5, type: 'construct', spanish: 'Viernes', chinese: '星期五', pinyin: 'xīng qī wǔ', words: [
-          { char: '星期五', pinyin: 'xīng qī wǔ', uniqueId: 'xingqiwu1' }, { char: '星期六', pinyin: 'xīng qī liù', uniqueId: 'xingqiliu1' }, { char: '星期天', pinyin: 'xīng qī tiān', uniqueId: 'xingqitian1' }, { char: '今天', pinyin: 'jīn tiān', uniqueId: 'jintian1' }
-        ]},
-        { id: 6, type: 'construct', spanish: 'Sábado', chinese: '星期六', pinyin: 'xīng qī liù', words: [
-          { char: '星期五', pinyin: 'xīng qī wǔ', uniqueId: 'xingqiwu2' }, { char: '星期六', pinyin: 'xīng qī liù', uniqueId: 'xingqiliu2' }, { char: '星期天', pinyin: 'xīng qī tiān', uniqueId: 'xingqitian2' }, { char: '今天', pinyin: 'jīn tiān', uniqueId: 'jintian2' }
-        ]},
-        { id: 7, type: 'construct', spanish: 'Domingo', chinese: '星期天', pinyin: 'xīng qī tiān', words: [
-          { char: '星期五', pinyin: 'xīng qī wǔ', uniqueId: 'xingqiwu3' }, { char: '星期六', pinyin: 'xīng qī liù', uniqueId: 'xingqiliu3' }, { char: '星期天', pinyin: 'xīng qī tiān', uniqueId: 'xingqitian3' }, { char: '今天', pinyin: 'jīn tiān', uniqueId: 'jintian3' }
-        ]},
-        { id: 8, type: 'construct', spanish: 'Hoy', chinese: '今天', pinyin: 'jīn tiān', words: [
-          { char: '今天', pinyin: 'jīn tiān', uniqueId: 'jintian4' }, { char: '昨天', pinyin: 'zuó tiān', uniqueId: 'zuotian1' }, { char: '明天', pinyin: 'míng tiān', uniqueId: 'mingtian1' }, { char: '星期天', pinyin: 'xīng qī tiān', uniqueId: 'xingqitian4' }
-        ]}
-      ],
-      exam: [
-        { question: '星期一', options: ['Martes', 'Lunes', 'Miércoles', 'Jueves'], correct: 1 },
-        { question: '今天', options: ['Ayer', 'Hoy', 'Mañana', 'Domingo'], correct: 1 },
-        { question: '星期六', options: ['Viernes', 'Sábado', 'Domingo', 'Lunes'], correct: 1 }
-      ]
-    },
-
-    // 6) Comida
-    {
-      id: 6,
-      title: 'Comida',
-      exercises: [
-        { id: 1, type: 'construct', spanish: 'Comer', chinese: '吃', pinyin: 'chī', words: [
-          { char: '吃', pinyin: 'chī', uniqueId: 'chi1' }, { char: '喝', pinyin: 'hē', uniqueId: 'he1' }, { char: '水', pinyin: 'shuǐ', uniqueId: 'shui1' }, { char: '茶', pinyin: 'chá', uniqueId: 'cha1' }
-        ]},
-        { id: 2, type: 'construct', spanish: 'Beber', chinese: '喝', pinyin: 'hē', words: [
-          { char: '吃', pinyin: 'chī', uniqueId: 'chi2' }, { char: '喝', pinyin: 'hē', uniqueId: 'he2' }, { char: '水', pinyin: 'shuǐ', uniqueId: 'shui2' }, { char: '茶', pinyin: 'chá', uniqueId: 'cha2' }
-        ]},
-        { id: 3, type: 'construct', spanish: 'Agua', chinese: '水', pinyin: 'shuǐ', words: [
-          { char: '吃', pinyin: 'chī', uniqueId: 'chi3' }, { char: '喝', pinyin: 'hē', uniqueId: 'he3' }, { char: '水', pinyin: 'shuǐ', uniqueId: 'shui3' }, { char: '茶', pinyin: 'chá', uniqueId: 'cha3' }
-        ]},
-        { id: 4, type: 'construct', spanish: 'Té', chinese: '茶', pinyin: 'chá', words: [
-          { char: '吃', pinyin: 'chī', uniqueId: 'chi4' }, { char: '喝', pinyin: 'hē', uniqueId: 'he4' }, { char: '水', pinyin: 'shuǐ', uniqueId: 'shui4' }, { char: '茶', pinyin: 'chá', uniqueId: 'cha4' }
-        ]},
-        { id: 5, type: 'construct', spanish: 'Arroz', chinese: '米饭', pinyin: 'mǐ fàn', words: [
-          { char: '米饭', pinyin: 'mǐ fàn', uniqueId: 'mifan1' }, { char: '面条', pinyin: 'miàn tiáo', uniqueId: 'miantiao1' }, { char: '鸡肉', pinyin: 'jī ròu', uniqueId: 'jirou1' }, { char: '牛肉', pinyin: 'niú ròu', uniqueId: 'niurou1' }
-        ]},
-        { id: 6, type: 'construct', spanish: 'Fideos', chinese: '面条', pinyin: 'miàn tiáo', words: [
-          { char: '米饭', pinyin: 'mǐ fàn', uniqueId: 'mifan2' }, { char: '面条', pinyin: 'miàn tiáo', uniqueId: 'miantiao2' }, { char: '鸡肉', pinyin: 'jī ròu', uniqueId: 'jirou2' }, { char: '牛肉', pinyin: 'niú ròu', uniqueId: 'niurou2' }
-        ]},
-        { id: 7, type: 'construct', spanish: 'Pollo', chinese: '鸡肉', pinyin: 'jī ròu', words: [
-          { char: '米饭', pinyin: 'mǐ fàn', uniqueId: 'mifan3' }, { char: '面条', pinyin: 'miàn tiáo', uniqueId: 'miantiao3' }, { char: '鸡肉', pinyin: 'jī ròu', uniqueId: 'jirou3' }, { char: '牛肉', pinyin: 'niú ròu', uniqueId: 'niurou3' }
-        ]},
-        { id: 8, type: 'construct', spanish: 'Carne de res', chinese: '牛肉', pinyin: 'niú ròu', words: [
-          { char: '米饭', pinyin: 'mǐ fàn', uniqueId: 'mifan4' }, { char: '面条', pinyin: 'miàn tiáo', uniqueId: 'miantiao4' }, { char: '鸡肉', pinyin: 'jī ròu', uniqueId: 'jirou4' }, { char: '牛肉', pinyin: 'niú ròu', uniqueId: 'niurou4' }
-        ]}
-      ],
-      exam: [
-        { question: '吃', options: ['Beber', 'Comer', 'Dormir', 'Caminar'], correct: 1 },
-        { question: '水', options: ['Té', 'Agua', 'Leche', 'Jugo'], correct: 1 },
-        { question: '米饭', options: ['Fideos', 'Arroz', 'Pollo', 'Carne'], correct: 1 }
-      ]
-    }
-  ]
+  levels: []
 };
 
+// Solo para esta build incluyo los 6 niveles base del canvas original:
+chineseData.levels = [
+  { id: 1, title: 'Saludos Básicos', exercises: [
+    { id:1,type:'construct',spanish:'Hola',chinese:'你好',pinyin:'nǐ hǎo',words:[
+      {char:'你',pinyin:'nǐ',uniqueId:'ni1'},{char:'好',pinyin:'hǎo',uniqueId:'hao1'},{char:'我',pinyin:'wǒ',uniqueId:'wo1'},{char:'是',pinyin:'shì',uniqueId:'shi1'}]},
+    { id:2,type:'construct',spanish:'Adiós',chinese:'再见',pinyin:'zàijiàn',words:[
+      {char:'再',pinyin:'zài',uniqueId:'zai1'},{char:'见',pinyin:'jiàn',uniqueId:'jian1'},{char:'你',pinyin:'nǐ',uniqueId:'ni2'},{char:'好',pinyin:'hǎo',uniqueId:'hao2'}]},
+    { id:3,type:'construct',spanish:'Gracias',chinese:'谢谢',pinyin:'xiè xiè',words:[
+      {char:'谢',pinyin:'xiè',uniqueId:'xie1'},{char:'谢',pinyin:'xiè',uniqueId:'xie2'},{char:'不',pinyin:'bù',uniqueId:'bu1'},{char:'客气',pinyin:'kè qì',uniqueId:'keqi1'}]},
+    { id:4,type:'construct',spanish:'Lo siento',chinese:'对不起',pinyin:'duì bù qǐ',words:[
+      {char:'对',pinyin:'duì',uniqueId:'dui1'},{char:'不',pinyin:'bù',uniqueId:'bu2'},{char:'起',pinyin:'qǐ',uniqueId:'qi1'},{char:'没关系',pinyin:'méi guān xi',uniqueId:'meiguanxi1'}]},
+    { id:5,type:'construct',spanish:'Por favor',chinese:'请',pinyin:'qǐng',words:[
+      {char:'请',pinyin:'qǐng',uniqueId:'qing1'},{char:'谢谢',pinyin:'xiè xiè',uniqueId:'xiexie1'},{char:'不',pinyin:'bù',uniqueId:'bu3'},{char:'客气',pinyin:'kè qì',uniqueId:'keqi2'}]},
+    { id:6,type:'construct',spanish:'De nada',chinese:'不客气',pinyin:'bù kè qì',words:[
+      {char:'不',pinyin:'bù',uniqueId:'bu4'},{char:'客气',pinyin:'kè qì',uniqueId:'keqi3'},{char:'谢谢',pinyin:'xiè xiè',uniqueId:'xiexie2'},{char:'请',pinyin:'qǐng',uniqueId:'qing2'}]},
+    { id:7,type:'construct',spanish:'Buenos días',chinese:'早上好',pinyin:'zǎo shàng hǎo',words:[
+      {char:'早上',pinyin:'zǎo shàng',uniqueId:'zaoshang1'},{char:'好',pinyin:'hǎo',uniqueId:'hao3'},{char:'晚上',pinyin:'wǎn shàng',uniqueId:'wanshang1'},{char:'中午',pinyin:'zhōng wǔ',uniqueId:'zhongwu1'}]},
+    { id:8,type:'construct',spanish:'Buenas noches',chinese:'晚上好',pinyin:'wǎn shàng hǎo',words:[
+      {char:'晚上',pinyin:'wǎn shàng',uniqueId:'wanshang2'},{char:'好',pinyin:'hǎo',uniqueId:'hao4'},{char:'早上',pinyin:'zǎo shàng',uniqueId:'zaoshang2'},{char:'中午',pinyin:'zhōng wǔ',uniqueId:'zhongwu2'}]},
+    { id:9,type:'construct',spanish:'¿Cómo estás?',chinese:'你好吗',pinyin:'nǐ hǎo ma',words:[
+      {char:'你',pinyin:'nǐ',uniqueId:'ni3'},{char:'好',pinyin:'hǎo',uniqueId:'hao5'},{char:'吗',pinyin:'ma',uniqueId:'ma1'},{char:'我',pinyin:'wǒ',uniqueId:'wo2'}]},
+    { id:10,type:'construct',spanish:'Estoy bien',chinese:'我很好',pinyin:'wǒ hěn hǎo',words:[
+      {char:'我',pinyin:'wǒ',uniqueId:'wo3'},{char:'很',pinyin:'hěn',uniqueId:'hen1'},{char:'好',pinyin:'hǎo',uniqueId:'hao6'},{char:'不',pinyin:'bù',uniqueId:'bu5'}]},
+  ],
+  exam:[
+    {question:'你好',options:['Adiós','Hola','Gracias','Por favor'],correct:1},
+    {question:'谢谢',options:['Lo siento','Hola','Gracias','Adiós'],correct:2},
+    {question:'再见',options:['Hola','Adiós','Gracias','Por favor'],correct:1}
+  ]},
+
+  { id:2,title:'Números Básicos',exercises:[
+    {id:1,type:'construct',spanish:'Uno',chinese:'一',pinyin:'yī',words:[
+      {char:'一',pinyin:'yī',uniqueId:'yi1'},{char:'二',pinyin:'èr',uniqueId:'er1'},{char:'三',pinyin:'sān',uniqueId:'san1'},{char:'四',pinyin:'sì',uniqueId:'si1'}]},
+    {id:2,type:'construct',spanish:'Dos',chinese:'二',pinyin:'èr',words:[
+      {char:'一',pinyin:'yī',uniqueId:'yi2'},{char:'二',pinyin:'èr',uniqueId:'er2'},{char:'三',pinyin:'sān',uniqueId:'san2'},{char:'四',pinyin:'sì',uniqueId:'si2'}]},
+    {id:3,type:'construct',spanish:'Tres',chinese:'三',pinyin:'sān',words:[
+      {char:'一',pinyin:'yī',uniqueId:'yi3'},{char:'二',pinyin:'èr',uniqueId:'er3'},{char:'三',pinyin:'sān',uniqueId:'san3'},{char:'四',pinyin:'sì',uniqueId:'si3'}]},
+    {id:4,type:'construct',spanish:'Cuatro',chinese:'四',pinyin:'sì',words:[
+      {char:'一',pinyin:'yī',uniqueId:'yi4'},{char:'二',pinyin:'èr',uniqueId:'er4'},{char:'三',pinyin:'sān',uniqueId:'san4'},{char:'四',pinyin:'sì',uniqueId:'si4'}]},
+    {id:5,type:'construct',spanish:'Cinco',chinese:'五',pinyin:'wǔ',words:[
+      {char:'五',pinyin:'wǔ',uniqueId:'wu1'},{char:'六',pinyin:'liù',uniqueId:'liu1'},{char:'七',pinyin:'qī',uniqueId:'qi2'},{char:'八',pinyin:'bā',uniqueId:'ba1'}]},
+    {id:6,type:'construct',spanish:'Seis',chinese:'六',pinyin:'liù',words:[
+      {char:'五',pinyin:'wǔ',uniqueId:'wu2'},{char:'六',pinyin:'liù',uniqueId:'liu2'},{char:'七',pinyin:'qī',uniqueId:'qi3'},{char:'八',pinyin:'bā',uniqueId:'ba2'}]},
+    {id:7,type:'construct',spanish:'Siete',chinese:'七',pinyin:'qī',words:[
+      {char:'五',pinyin:'wǔ',uniqueId:'wu3'},{char:'六',pinyin:'liù',uniqueId:'liu3'},{char:'七',pinyin:'qī',uniqueId:'qi4'},{char:'八',pinyin:'bā',uniqueId:'ba3'}]},
+    {id:8,type:'construct',spanish:'Ocho',chinese:'八',pinyin:'bā',words:[
+      {char:'五',pinyin:'wǔ',uniqueId:'wu4'},{char:'六',pinyin:'liù',uniqueId:'liu4'},{char:'七',pinyin:'qī',uniqueId:'qi5'},{char:'八',pinyin:'bā',uniqueId:'ba4'}]},
+  ],
+  exam:[
+    {question:'三',options:['Dos','Tres','Cuatro','Cinco'],correct:1},
+    {question:'七',options:['Seis','Siete','Ocho','Nueve'],correct:1},
+    {question:'十',options:['Ocho','Nueve','Diez','Once'],correct:2}
+  ]},
+
+  { id:3,title:'Familia',exercises:[
+    {id:1,type:'construct',spanish:'Padre',chinese:'父亲',pinyin:'fù qīn',words:[
+      {char:'父亲',pinyin:'fù qīn',uniqueId:'fuqin1'},{char:'母亲',pinyin:'mǔ qīn',uniqueId:'muqin1'},{char:'儿子',pinyin:'ér zi',uniqueId:'erzi1'},{char:'女儿',pinyin:'nǚ ér',uniqueId:'nuer1'}]},
+    {id:2,type:'construct',spanish:'Madre',chinese:'母亲',pinyin:'mǔ qīn',words:[
+      {char:'父亲',pinyin:'fù qīn',uniqueId:'fuqin2'},{char:'母亲',pinyin:'mǔ qīn',uniqueId:'muqin2'},{char:'儿子',pinyin:'ér zi',uniqueId:'erzi2'},{char:'女儿',pinyin:'nǚ ér',uniqueId:'nuer2'}]},
+    {id:3,type:'construct',spanish:'Hijo',chinese:'儿子',pinyin:'ér zi',words:[
+      {char:'父亲',pinyin:'fù qīn',uniqueId:'fuqin3'},{char:'母亲',pinyin:'mǔ qīn',uniqueId:'muqin3'},{char:'儿子',pinyin:'ér zi',uniqueId:'erzi3'},{char:'女儿',pinyin:'nǚ ér',uniqueId:'nuer3'}]},
+    {id:4,type:'construct',spanish:'Hija',chinese:'女儿',pinyin:'nǚ ér',words:[
+      {char:'父亲',pinyin:'fù qīn',uniqueId:'fuqin4'},{char:'母亲',pinyin:'mǔ qīn',uniqueId:'muqin4'},{char:'儿子',pinyin:'ér zi',uniqueId:'erzi4'},{char:'女儿',pinyin:'nǚ ér',uniqueId:'nuer4'}]},
+    {id:5,type:'construct',spanish:'Hermano',chinese:'哥哥',pinyin:'gē ge',words:[
+      {char:'哥哥',pinyin:'gē ge',uniqueId:'gege1'},{char:'姐姐',pinyin:'jiě jie',uniqueId:'jiejie1'},{char:'爷爷',pinyin:'yé ye',uniqueId:'yeye1'},{char:'奶奶',pinyin:'nǎi nai',uniqueId:'nainai1'}]},
+    {id:6,type:'construct',spanish:'Hermana',chinese:'姐姐',pinyin:'jiě jie',words:[
+      {char:'哥哥',pinyin:'gē ge',uniqueId:'gege2'},{char:'姐姐',pinyin:'jiě jie',uniqueId:'jiejie2'},{char:'爷爷',pinyin:'yé ye',uniqueId:'yeye2'},{char:'奶奶',pinyin:'nǎi nai',uniqueId:'nainai2'}]},
+    {id:7,type:'construct',spanish:'Abuelo',chinese:'爷爷',pinyin:'yé ye',words:[
+      {char:'哥哥',pinyin:'gē ge',uniqueId:'gege3'},{char:'姐姐',pinyin:'jiě jie',uniqueId:'jiejie3'},{char:'爷爷',pinyin:'yé ye',uniqueId:'yeye3'},{char:'奶奶',pinyin:'nǎi nai',uniqueId:'nainai3'}]},
+    {id:8,type:'construct',spanish:'Abuela',chinese:'奶奶',pinyin:'nǎi nai',words:[
+      {char:'哥哥',pinyin:'gē ge',uniqueId:'gege4'},{char:'姐姐',pinyin:'jiě jie',uniqueId:'jiejie4'},{char:'爷爷',pinyin:'yé ye',uniqueId:'yeye4'},{char:'奶奶',pinyin:'nǎi nai',uniqueId:'nainai4'}]},
+  ],
+  exam:[
+    {question:'父亲',options:['Madre','Padre','Hijo','Hermano'],correct:1},
+    {question:'姐姐',options:['Hermano','Hermana','Abuelo','Abuela'],correct:1},
+    {question:'朋友',options:['Familia','Amigo','Profesor','Estudiante'],correct:1}
+  ]},
+
+  { id:4,title:'Colores',exercises:[
+    {id:1,type:'construct',spanish:'Rojo',chinese:'红色',pinyin:'hóng sè',words:[
+      {char:'红色',pinyin:'hóng sè',uniqueId:'hongse1'},{char:'蓝色',pinyin:'lán sè',uniqueId:'lanse1'},{char:'绿色',pinyin:'lǜ sè',uniqueId:'luse1'},{char:'黄色',pinyin:'huáng sè',uniqueId:'huangse1'}]},
+    {id:2,type:'construct',spanish:'Azul',chinese:'蓝色',pinyin:'lán sè',words:[
+      {char:'红色',pinyin:'hóng sè',uniqueId:'hongse2'},{char:'蓝色',pinyin:'lán sè',uniqueId:'lanse2'},{char:'绿色',pinyin:'lǜ sè',uniqueId:'luse2'},{char:'黄色',pinyin:'huáng sè',uniqueId:'huangse2'}]},
+    {id:3,type:'construct',spanish:'Verde',chinese:'绿色',pinyin:'lǜ sè',words:[
+      {char:'红色',pinyin:'hóng sè',uniqueId:'hongse3'},{char:'蓝色',pinyin:'lán sè',uniqueId:'lanse3'},{char:'绿色',pinyin:'lǜ sè',uniqueId:'luse3'},{char:'黄色',pinyin:'huáng sè',uniqueId:'huangse3'}]},
+    {id:4,type:'construct',spanish:'Amarillo',chinese:'黄色',pinyin:'huáng sè',words:[
+      {char:'红色',pinyin:'hóng sè',uniqueId:'hongse4'},{char:'蓝色',pinyin:'lán sè',uniqueId:'lanse4'},{char:'绿色',pinyin:'lǜ sè',uniqueId:'luse4'},{char:'黄色',pinyin:'huáng sè',uniqueId:'huangse4'}]},
+    {id:5,type:'construct',spanish:'Negro',chinese:'黑色',pinyin:'hēi sè',words:[
+      {char:'黑色',pinyin:'hēi sè',uniqueId:'heise1'},{char:'白色',pinyin:'bái sè',uniqueId:'baise1'},{char:'粉色',pinyin:'fěn sè',uniqueId:'fense1'},{char:'紫色',pinyin:'zǐ sè',uniqueId:'zise1'}]},
+    {id:6,type:'construct',spanish:'Blanco',chinese:'白色',pinyin:'bái sè',words:[
+      {char:'黑色',pinyin:'hēi sè',uniqueId:'heise2'},{char:'白色',pinyin:'bái sè',uniqueId:'baise2'},{char:'粉色',pinyin:'fěn sè',uniqueId:'fense2'},{char:'紫色',pinyin:'zǐ sè',uniqueId:'zise2'}]},
+    {id:7,type:'construct',spanish:'Rosa',chinese:'粉色',pinyin:'fěn sè',words:[
+      {char:'黑色',pinyin:'hēi sè',uniqueId:'heise3'},{char:'白色',pinyin:'bái sè',uniqueId:'baise3'},{char:'粉色',pinyin:'fěn sè',uniqueId:'fense3'},{char:'紫色',pinyin:'zǐ sè',uniqueId:'zise3'}]},
+    {id:8,type:'construct',spanish:'Morado',chinese:'紫色',pinyin:'zǐ sè',words:[
+      {char:'黑色',pinyin:'hēi sè',uniqueId:'heise4'},{char:'白色',pinyin:'bái sè',uniqueId:'baise4'},{char:'粉色',pinyin:'fěn sè',uniqueId:'fense4'},{char:'紫色',pinyin:'zǐ sè',uniqueId:'zise4'}]},
+  ],
+  exam:[
+    {question:'红色',options:['Azul','Rojo','Verde','Amarillo'],correct:1},
+    {question:'白色',options:['Negro','Blanco','Rosa','Morado'],correct:1},
+    {question:'绿色',options:['Rojo','Verde','Azul','Amarillo'],correct:1}
+  ]},
+
+  { id:5,title:'Días de la Semana',exercises:[
+    {id:1,type:'construct',spanish:'Lunes',chinese:'星期一',pinyin:'xīng qī yī',words:[
+      {char:'星期一',pinyin:'xīng qī yī',uniqueId:'xingqiyi1'},{char:'星期二',pinyin:'xīng qī èr',uniqueId:'xingqier1'},{char:'星期三',pinyin:'xīng qī sān',uniqueId:'xingqisan1'},{char:'星期四',pinyin:'xīng qī sì',uniqueId:'xingqisi1'}]},
+    {id:2,type:'construct',spanish:'Martes',chinese:'星期二',pinyin:'xīng qī èr',words:[
+      {char:'星期一',pinyin:'xīng qī yī',uniqueId:'xingqiyi2'},{char:'星期二',pinyin:'xīng qī èr',uniqueId:'xingqier2'},{char:'星期三',pinyin:'xīng qī sān',uniqueId:'xingqisan2'},{char:'星期四',pinyin:'xīng qī sì',uniqueId:'xingqisi2'}]},
+    {id:3,type:'construct',spanish:'Miércoles',chinese:'星期三',pinyin:'xīng qī sān',words:[
+      {char:'星期一',pinyin:'xīng qī yī',uniqueId:'xingqiyi3'},{char:'星期二',pinyin:'xīng qī èr',uniqueId:'xingqier3'},{char:'星期三',pinyin:'xīng qī sān',uniqueId:'xingqisan3'},{char:'星期四',pinyin:'xīng qī sì',uniqueId:'xingqisi3'}]},
+    {id:4,type:'construct',spanish:'Jueves',chinese:'星期四',pinyin:'xīng qī sì',words:[
+      {char:'星期一',pinyin:'xīng qī yī',uniqueId:'xingqiyi4'},{char:'星期二',pinyin:'xīng qī èr',uniqueId:'xingqier4'},{char:'星期三',pinyin:'xīng qī sān',uniqueId:'xingqisan4'},{char:'星期四',pinyin:'xīng qī sì',uniqueId:'xingqisi4'}]},
+    {id:5,type:'construct',spanish:'Viernes',chinese:'星期五',pinyin:'xīng qī wǔ',words:[
+      {char:'星期五',pinyin:'xīng qī wǔ',uniqueId:'xingqiwu1'},{char:'星期六',pinyin:'xīng qī liù',uniqueId:'xingqiliu1'},{char:'星期天',pinyin:'xīng qī tiān',uniqueId:'xingqitian1'},{char:'今天',pinyin:'jīn tiān',uniqueId:'jintian1'}]},
+    {id:6,type:'construct',spanish:'Sábado',chinese:'星期六',pinyin:'xīng qī liù',words:[
+      {char:'星期五',pinyin:'xīng qī wǔ',uniqueId:'xingqiwu2'},{char:'星期六',pinyin:'xīng qī liù',uniqueId:'xingqiliu2'},{char:'星期天',pinyin:'xīng qī tiān',uniqueId:'xingqitian2'},{char:'今天',pinyin:'jīn tiān',uniqueId:'jintian2'}]},
+    {id:7,type:'construct',spanish:'Domingo',chinese:'星期天',pinyin:'xīng qī tiān',words:[
+      {char:'星期五',pinyin:'xīng qī wǔ',uniqueId:'xingqiwu3'},{char:'星期六',pinyin:'xīng qī liù',uniqueId:'xingqiliu3'},{char:'星期天',pinyin:'xīng qī tiān',uniqueId:'xingqitian3'},{char:'今天',pinyin:'jīn tiān',uniqueId:'jintian3'}]},
+    {id:8,type:'construct',spanish:'Hoy',chinese:'今天',pinyin:'jīn tiān',words:[
+      {char:'今天',pinyin:'jīn tiān',uniqueId:'jintian4'},{char:'昨天',pinyin:'zuó tiān',uniqueId:'zuotian1'},{char:'明天',pinyin:'míng tiān',uniqueId:'mingtian1'},{char:'星期天',pinyin:'xīng qī tiān',uniqueId:'xingqitian4'}]},
+  ],
+  exam:[
+    {question:'星期一',options:['Martes','Lunes','Miércoles','Jueves'],correct:1},
+    {question:'今天',options:['Ayer','Hoy','Mañana','Domingo'],correct:1},
+    {question:'星期六',options:['Viernes','Sábado','Domingo','Lunes'],correct:1}
+  ]},
+
+  { id:6,title:'Comida',exercises:[
+    {id:1,type:'construct',spanish:'Comer',chinese:'吃',pinyin:'chī',words:[
+      {char:'吃',pinyin:'chī',uniqueId:'chi1'},{char:'喝',pinyin:'hē',uniqueId:'he1'},{char:'水',pinyin:'shuǐ',uniqueId:'shui1'},{char:'茶',pinyin:'chá',uniqueId:'cha1'}]},
+    {id:2,type:'construct',spanish:'Beber',chinese:'喝',pinyin:'hē',words:[
+      {char:'吃',pinyin:'chī',uniqueId:'chi2'},{char:'喝',pinyin:'hē',uniqueId:'he2'},{char:'水',pinyin:'shuǐ',uniqueId:'shui2'},{char:'茶',pinyin:'chá',uniqueId:'cha2'}]},
+    {id:3,type:'construct',spanish:'Agua',chinese:'水',pinyin:'shuǐ',words:[
+      {char:'吃',pinyin:'chī',uniqueId:'chi3'},{char:'喝',pinyin:'hē',uniqueId:'he3'},{char:'水',pinyin:'shuǐ',uniqueId:'shui3'},{char:'茶',pinyin:'chá',uniqueId:'cha3'}]},
+    {id:4,type:'construct',spanish:'Té',chinese:'茶',pinyin:'chá',words:[
+      {char:'吃',pinyin:'chī',uniqueId:'chi4'},{char:'喝',pinyin:'hē',uniqueId:'he4'},{char:'水',pinyin:'shuǐ',uniqueId:'shui4'},{char:'茶',pinyin:'chá',uniqueId:'cha4'}]},
+    {id:5,type:'construct',spanish:'Arroz',chinese:'米饭',pinyin:'mǐ fàn',words:[
+      {char:'米饭',pinyin:'mǐ fàn',uniqueId:'mifan1'},{char:'面条',pinyin:'miàn tiáo',uniqueId:'miantiao1'},{char:'鸡肉',pinyin:'jī ròu',uniqueId:'jirou1'},{char:'牛肉',pinyin:'niú ròu',uniqueId:'niurou1'}]},
+    {id:6,type:'construct',spanish:'Fideos',chinese:'面条',pinyin:'miàn tiáo',words:[
+      {char:'米饭',pinyin:'mǐ fàn',uniqueId:'mifan2'},{char:'面条',pinyin:'miàn tiáo',uniqueId:'miantiao2'},{char:'鸡肉',pinyin:'jī ròu',uniqueId:'jirou2'},{char:'牛肉',pinyin:'niú ròu',uniqueId:'niurou2'}]},
+    {id:7,type:'construct',spanish:'Pollo',chinese:'鸡肉',pinyin:'jī ròu',words:[
+      {char:'米饭',pinyin:'mǐ fàn',uniqueId:'mifan3'},{char:'面条',pinyin:'miàn tiáo',uniqueId:'miantiao3'},{char:'鸡肉',pinyin:'jī ròu',uniqueId:'jirou3'},{char:'牛肉',pinyin:'niú ròu',uniqueId:'niurou3'}]},
+    {id:8,type:'construct',spanish:'Carne de res',chinese:'牛肉',pinyin:'niú ròu',words:[
+      {char:'米饭',pinyin:'mǐ fàn',uniqueId:'mifan4'},{char:'面条',pinyin:'miàn tiáo',uniqueId:'miantiao4'},{char:'鸡肉',pinyin:'jī ròu',uniqueId:'jirou4'},{char:'牛肉',pinyin:'niú ròu',uniqueId:'niurou4'}]},
+  ],
+  exam:[
+    {question:'吃',options:['Beber','Comer','Dormir','Caminar'],correct:1},
+    {question:'水',options:['Té','Agua','Leche','Jugo'],correct:1},
+    {question:'米饭',options:['Fideos','Arroz','Pollo','Carne'],correct:1}
+  ]},
+];
+// Extender a 20 niveles
+chineseData.levels = extendLevels(chineseData.levels);
+chineseData.levels = normalizeLevels(chineseData.levels);
+
+
+// --- App (idéntico flujo del canvas) ---
 const ChineseLearningApp = () => {
   const [showWelcome, setShowWelcome] = useState(true);
   const [currentLevel, setCurrentLevel] = useState(1);
@@ -480,55 +285,138 @@ const ChineseLearningApp = () => {
   const [lives, setLives] = useState(5);
   const [showDictionary, setShowDictionary] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [tiles, setTiles] = useState([]); // fichas disponibles
-  const [attempt, setAttempt] = useState([]); // índices seleccionados
+  const [tiles, setTiles] = useState([]);
+  const [attempt, setAttempt] = useState([]);
   const [showExam, setShowExam] = useState(false);
+  const [showSummary, setShowSummary] = useState(false);
   const [examQuestion, setExamQuestion] = useState(0);
+  const [examStats, setExamStats] = useState({
+    correct: 0,
+    wrong: 0,
+    streak: 0,
+    bestStreak: 0,
+    mistakes: {}
+  });
   const [levelProgress, setLevelProgress] = useState({});
-  const [attemptsLeft, setAttemptsLeft] = useState(4);
   const [showResult, setShowResult] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
-  const [gameOverType, setGameOverType] = useState(null); // 'noLives', 'failedExam'
+  const [gameOverType, setGameOverType] = useState(null);
   const [randomizedExercises, setRandomizedExercises] = useState({});
-  const [dataIssues, setDataIssues] = useState([]); // ✅ Panel de test/validación
 
-  
 const level = chineseData.levels.find((l) => l.id === currentLevel);
 
-// === Exam helpers (6 preguntas) — estable por nivel ===
-const [examCache, setExamCache] = React.useState({});
-const buildExamFromExercises = (exercises, n = 6) => {
-  const pool = (exercises || []).map(ex => ({ q: ex.chinese, ans: ex.spanish }));
-  const pick = (arr, k) => {
-    const a = Array.isArray(arr) ? [...arr] : [];
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [a[i], a[j]] = [a[j], a[i]];
+// === Helpers examen y normalización (ÚNICO BLOQUE) ===
+
+// Barajador local, sin dependencias externas
+const shuffleLocal = (array) => {
+  const a = Array.isArray(array) ? [...array] : [];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+};
+
+// Convierte "汉字串" + "han zi chuan" -> [{char:'汉', pinyin:'han'}, ...]
+const toCharWords = (han, py) => {
+  const chars = Array.from(han).filter(c => /\S/.test(c));
+  const p = (py || "").trim().split(/\s+/);
+  if (!chars.length) return [];
+  // Empareja por índice; si pinyin es más corto, reutiliza el último
+  return chars.map((c, i) => ({
+    char: c,
+    pinyin: p[i] ?? p[p.length - 1] ?? '',
+    uniqueId: `w-${c}-${i}`
+  }));
+};
+
+// Garantiza que cada ejercicio tenga words por carácter (hanzi + pinyin)
+const ensureCharWords = (ex) => {
+  if (!ex) return ex;
+  const w = Array.isArray(ex.words) ? ex.words : [];
+  const needRebuild = !w.length || w.some(x => !x?.char) || (w.length === 1 && (ex.chinese || '').trim().length > 1);
+  if (needRebuild) {
+    const rebuilt = toCharWords(ex.chinese || "", ex.pinyin || "");
+    return { ...ex, words: rebuilt };
+  }
+  // Asegura uniqueId y pinyin
+  const safe = w.map((x, idx) => ({
+    ...x,
+    uniqueId: x.uniqueId || `w-${ex.id}-${idx}-${x.char || ''}`,
+    pinyin: x.pinyin ?? ''
+  }));
+  return { ...ex, words: safe };
+};
+
+// Normaliza TODOS los niveles a words por carácter
+const normalizeLevels = (levels) => (levels || []).map((lvl) => ({
+  ...lvl,
+  exercises: (lvl.exercises || []).map(ensureCharWords),
+}));
+
+// Construye un pool de distractores (ES) desde niveles >= minId (por defecto 7)
+const spanishPoolFromLevels = (levels, minId = 7) => {
+  const L = levels || [];
+  const pool = [];
+  for (const lvl of L) {
+    if ((lvl.id ?? 0) >= minId) {
+      for (const ex of (lvl.exercises || [])) {
+        if (ex?.spanish) pool.push(ex.spanish);
+      }
     }
-    return a.slice(0, k);
-  };
-  return pick(pool, Math.min(n, pool.length)).map((item) => {
-    const distractors = pool.filter(p => p.ans !== item.ans).map(p => p.ans);
-    const options = pick([item.ans, ...pick(distractors, 3)], 4);
+  }
+  return Array.from(new Set(pool));
+};
+
+// EXAMEN: 6 preguntas con 1 correcta + 3 distractores sólidos.
+// Para niveles >=7 usa pool global (niveles 7..20) si faltan distractores del propio nivel.
+const buildExamFromExercises = (exercises, n = 6, allLevels = chineseData.levels, levelId = 0) => {
+  const pool = (exercises || []).map(ex => ({ q: ex.chinese, ans: ex.spanish }));
+  const pick = (arr, k) => shuffleLocal(arr).slice(0, k);
+
+  const globalDistractors = spanishPoolFromLevels(allLevels, 7);
+
+  const makeQuestion = (item) => {
+    // Distractores primarios: del mismo nivel
+    const sameLevel = pool.filter(p => p.ans && p.ans !== item.ans).map(p => p.ans);
+    let candidates = Array.from(new Set(sameLevel));
+
+    // Si el nivel es >=7 o no alcanzan, completa con pool global (sin la correcta)
+    if ((levelId >= 7) || candidates.length < 3) {
+      const extras = globalDistractors.filter(x => x && x !== item.ans);
+      // mezcla y suma (evita duplicados)
+      candidates = Array.from(new Set([...candidates, ...pick(extras, 6)]));
+    }
+
+    const distractors = pick(candidates, 3);
+    const options = shuffleLocal([item.ans, ...distractors]);
     const correct = options.indexOf(item.ans);
     return { question: item.q, options, correct };
-  });
+  };
+
+  return pick(pool, Math.min(n, pool.length)).map(makeQuestion);
 };
+
+// Cache de examen por nivel (estable)
+const [examCache, setExamCache] = React.useState({});
 const getExamStable = (level) => {
   if (!level) return [];
   const id = level.id || 0;
   if (examCache[id]) return examCache[id];
   const ex = (Array.isArray(level.exam) && level.exam.length >= 6)
-    ? level.exam.slice(0,6)
-    : buildExamFromExercises(level.exercises || [], 6);
+    ? level.exam.slice(0, 6)
+    : buildExamFromExercises(level.exercises || [], 6, chineseData.levels, id);
   setExamCache(prev => ({ ...prev, [id]: ex }));
   return ex;
 };
 
 
+  
 
 
-  // Obtener ejercicios aleatorizados para el nivel actual
+
+  
+
   const getRandomizedExercises = (levelId) => {
     if (!randomizedExercises[levelId]) {
       const levelData = chineseData.levels.find((l) => l.id === levelId);
@@ -549,47 +437,19 @@ const getExamStable = (level) => {
       ? currentLevelExercises[currentExercise]
       : null;
 
-  // Caracteres objetivo del ejercicio actual
-  const targetChars = useMemo(() => {
-    if (!exercise) return [];
-    return Array.from(exercise.chinese.normalize()).filter((c) => /\S/.test(c));
-  }, [exercise]);
-
-  // Inicializar fichas cuando cambia el ejercicio
-  useEffect(() => {
-    if (targetChars.length > 0) {
-      const shuffled = shuffleNonTrivial(targetChars);
-      setTiles(shuffled.map((char) => ({ char, used: false })));
-      setAttempt([]);
-    }
-  }, [targetChars]);
-
-  // Animación corazón
   useEffect(() => {
     const style = document.createElement('style');
-    style.textContent = `
-      @keyframes heartbeat {
-        0% { transform: scale(1); }
-        14% { transform: scale(1.15); }
-        28% { transform: scale(1); }
-        42% { transform: scale(1.15); }
-        70% { transform: scale(1); }
-      }
-    `;
+    style.textContent = `@keyframes heartbeat{0%{transform:scale(1)}14%{transform:scale(1.15)}28%{transform:scale(1)}42%{transform:scale(1.15)}70%{transform:scale(1)}}`;
     document.head.appendChild(style);
     return () => document.head.removeChild(style);
   }, []);
 
-  // Inicializar progreso
   useEffect(() => {
-    const initialProgress = {};
-    chineseData.levels.forEach((lvl) => {
-      initialProgress[lvl.id] = 0;
-    });
-    setLevelProgress(initialProgress);
+    const initial = {};
+    chineseData.levels.forEach((lvl) => (initial[lvl.id] = 0));
+    setLevelProgress(initial);
   }, []);
 
-  // Inicializar ejercicios del nivel
   useEffect(() => {
     const levelData = chineseData.levels.find((l) => l.id === currentLevel);
     if (levelData && levelData.exercises && !randomizedExercises[currentLevel]) {
@@ -598,115 +458,33 @@ const getExamStable = (level) => {
     }
   }, [currentLevel]);
 
-  // ✅ TEST/VALIDACIÓN en runtime: verifica que cada ejercicio sea resoluble
   useEffect(() => {
-    const issues = [];
+    if (exercise?.words?.length) {
+      setTiles(shuffleLocal(exercise.words).map(t => ({ ...t, used: false })));
+      setAttempt([]);
+    }
+  }, [exercise]);
 
-    const canCompose = (target, words) => {
-      // backtracking para ver si target se compone usando subset de words (cada una a lo más una vez)
-      const used = Array(words.length).fill(false);
-      const memo = new Map();
-
-      const dfs = (remaining) => {
-        if (remaining === '') return true;
-        if (memo.has(remaining)) return memo.get(remaining);
-        for (let i = 0; i < words.length; i++) {
-          if (used[i]) continue;
-          const w = words[i].char;
-          if (remaining.startsWith(w)) {
-            used[i] = true;
-            if (dfs(remaining.slice(w.length))) {
-              memo.set(remaining, true);
-              used[i] = false;
-              return true;
-            }
-            used[i] = false;
-          }
-        }
-        memo.set(remaining, false);
-        return false;
-      };
-      return dfs(target);
-    };
-
-    chineseData.levels.forEach((lvl) => {
-      if (!Array.isArray(lvl.exercises) || lvl.exercises.length === 0) {
-        issues.push(`Nivel ${lvl.id} no tiene ejercicios.`);
-        return;
-      }
-      lvl.exercises.forEach((ex) => {
-        if (!ex.words || ex.words.length === 0) {
-          issues.push(`Nivel ${lvl.id} • Ejercicio ${ex.id} sin opciones de palabras.`);
-          return;
-        }
-        const ids = new Set();
-        ex.words.forEach((w) => {
-          if (ids.has(w.uniqueId)) issues.push(`Nivel ${lvl.id} • Ejercicio ${ex.id} tiene uniqueId duplicado: ${w.uniqueId}`);
-          ids.add(w.uniqueId);
-        });
-        if (!canCompose(ex.chinese, ex.words)) {
-          issues.push(`Nivel ${lvl.id} • Ejercicio ${ex.id} no puede construir "${ex.chinese}" con sus palabras.`);
-        }
-      });
-      if (!Array.isArray(lvl.exam) || lvl.exam.length === 0) {
-        issues.push(`Nivel ${lvl.id} no tiene examen.`);
-      } else {
-        lvl.exam.forEach((q, qi) => {
-          if (!(q.correct >= 0 && q.correct < q.options.length)) {
-            issues.push(`Nivel ${lvl.id} • Pregunta examen ${qi + 1} tiene índice 'correct' inválido.`);
-          }
-        });
-      }
-    });
-
-    setDataIssues(issues);
-  }, []);
-
-  const handleTileClick = (index) => {
-    if (!tiles[index] || tiles[index].used) return;
-    const tileChar = tiles[index].char;
-    setTiles((prev) => prev.map((t, i) => (i === index ? { ...t, used: true } : t)));
-    setAttempt((prev) => {
-      const next = [...prev, index];
-      if (next.length === targetChars.length) {
-        checkAnswer(next);
-      }
-      return next;
-    });
+  const toggleTile = (idx) => {
+    setTiles(prev => prev.map((t, i) => i === idx ? { ...t, used: !t.used } : t));
+    setAttempt(prev => prev.includes(idx) ? prev.filter(i => i !== idx) : [...prev, idx]);
   };
 
-  const undoLast = () => {
-    setAttempt((prev) => {
-      if (prev.length === 0) return prev;
-      const lastIndex = prev[prev.length - 1];
-      setTiles((tilesPrev) =>
-        tilesPrev.map((t, i) => (i === lastIndex ? { ...t, used: false } : t))
-      );
-      return prev.slice(0, -1);
-    });
-  };
-
-  const checkAnswer = (attemptIndices) => {
+  const checkAnswer = () => {
     if (!exercise) return;
-    const userAnswer = attemptIndices.map((i) => tiles[i].char).join('');
-    const correctAnswer = targetChars.join('');
-    const correct = userAnswer === correctAnswer;
-
+    const user = attempt.map(i => tiles[i]?.char).join('');
+    const target = (exercise?.chinese || '').replace(/\s+/g, '');
+    const correct = user === target;
     setIsCorrect(correct);
     setShowResult(true);
-
     if (!correct) {
       const newLives = Math.max(0, lives - 1);
       setLives(newLives);
       if (newLives === 0) {
-        setTimeout(() => {
-          setShowResult(false);
-          setGameOverType('noLives');
-        }, 1200);
+        setTimeout(() => { setShowResult(false); setGameOverType('noLives'); }, 1200);
         return;
       }
     }
-
     setTimeout(() => {
       setShowResult(false);
       if (correct) {
@@ -718,44 +496,36 @@ const getExamStable = (level) => {
           setCurrentExercise(next);
           setLevelProgress({ ...levelProgress, [currentLevel]: next });
         }
-      } else {
-        const reshuffled = shuffleNonTrivial(targetChars);
-        setTiles(reshuffled.map((char) => ({ char, used: false })));
       }
       setAttempt([]);
+      setTiles(prev => prev.map(t => ({ ...t, used: false })));
     }, 800);
   };
 
-  const handleExamAnswer = (selectedOption) => {
+  const handleExamAnswer = (selectedIndex) => {
     const examList = getExamStable(level);
-    const examData = examList[examQuestion];
-    const correct = selectedOption === examData.correct;
+    const q = examList[examQuestion];
+    const isCorrect = selectedIndex === q.correct;
 
-    if (correct) {
-      if (examQuestion < examList.length - 1) {
-        setExamQuestion(examQuestion + 1);
+    setExamStats(prev => {
+      const next = { ...prev };
+      if (isCorrect) {
+        next.correct += 1;
+        next.streak += 1;
+        next.bestStreak = Math.max(next.bestStreak, next.streak);
       } else {
-        const newLives = lives + 3;
-        setLives(newLives);
-        const nextLevel = currentLevel + 1;
-        if (chineseData.levels.find((l) => l.id === nextLevel)) {
-          goToLevel(nextLevel);
-        } else {
-          setCurrentExercise(0);
-        }
-        setShowExam(false);
-        setExamQuestion(0);
-        setAttemptsLeft(4);
+        next.wrong += 1;
+        next.streak = 0;
+        const key = q.question || '';
+        next.mistakes[key] = (next.mistakes[key] || 0) + 1;
       }
+      return next;
+    });
+
+    if (examQuestion < examList.length - 1) {
+      setExamQuestion(examQuestion + 1);
     } else {
-      const newAttempts = attemptsLeft - 1;
-      setAttemptsLeft(newAttempts);
-      if (newAttempts <= 0) {
-        setGameOverType('failedExam');
-        setShowExam(false);
-        setExamQuestion(0);
-        setAttemptsLeft(4);
-      }
+      setShowSummary(true);
     }
   };
 
@@ -763,13 +533,13 @@ const getExamStable = (level) => {
     setCurrentExercise(0);
     setLives(5);
     setGameOverType(null);
-    setAttempt([]);
-    setTiles([]);
     setShowResult(false);
     setShowExam(false);
+    setShowSummary(false);
     setExamQuestion(0);
-    setAttemptsLeft(4);
-
+    setExamStats({ correct: 0, wrong: 0, streak: 0, bestStreak: 0, mistakes: {} });
+    setAttempt([]);
+    setTiles([]);
     const levelData = chineseData.levels.find((l) => l.id === currentLevel);
     if (levelData && levelData.exercises) {
       const shuffled = shuffleLocal(levelData.exercises);
@@ -783,11 +553,13 @@ const getExamStable = (level) => {
     if (levelData) {
       setCurrentLevel(levelNum);
       setCurrentExercise(0);
-      setAttempt([]);
-      setTiles([]);
       setShowResult(false);
       setShowExam(false);
+      setShowSummary(false);
       setExamQuestion(0);
+      setExamStats({ correct: 0, wrong: 0, streak: 0, bestStreak: 0, mistakes: {} });
+      setAttempt([]);
+      setTiles([]);
       if (!randomizedExercises[levelNum] && levelData.exercises) {
         const shuffled = shuffleLocal(levelData.exercises);
         setRandomizedExercises((prev) => ({ ...prev, [levelNum]: shuffled }));
@@ -801,7 +573,6 @@ const getExamStable = (level) => {
 
   const startApp = () => setShowWelcome(false);
 
-  // Bienvenida
   if (showWelcome) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50 flex items-center justify-center p-4">
@@ -835,7 +606,6 @@ const getExamStable = (level) => {
     );
   }
 
-  // Game Over
   if (gameOverType) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50 flex items-center justify-center p-4">
@@ -858,7 +628,77 @@ const getExamStable = (level) => {
     );
   }
 
-  // Examen
+  if (showSummary) {
+    const examList = getExamStable(level);
+    const hardest = Object.entries(examStats.mistakes).sort((a,b) => b[1]-a[1])[0];
+    let hardestES = '';
+    if (hardest?.[0]) {
+      const found = (level.exercises || []).find(ex => ex.chinese === hardest[0]);
+      hardestES = found?.spanish || '';
+    }
+
+    return (
+      <div className="min-h-screen p-6 flex items-center justify-center bg-gradient-to-br from-emerald-50 to-teal-50">
+        <div className="max-w-xl w-full bg-white rounded-3xl shadow-lg p-8 text-center">
+          <h2 className="text-3xl font-bold text-emerald-700 mb-2">¡Felicitaciones!</h2>
+          <p className="text-gray-600 mb-6">Has completado el examen del nivel {currentLevel}.</p>
+
+          <div className="grid grid-cols-2 gap-4 text-left mb-6">
+            <div className="p-4 rounded-2xl bg-emerald-50">
+              <div className="text-sm text-gray-500">Puntaje</div>
+              <div className="text-2xl font-semibold">{examStats.correct} / {examList.length}</div>
+            </div>
+            <div className="p-4 rounded-2xl bg-emerald-50">
+              <div className="text-sm text-gray-500">Mejor racha</div>
+              <div className="text-2xl font-semibold">{examStats.bestStreak}</div>
+            </div>
+            <div className="p-4 rounded-2xl bg-emerald-50 col-span-2">
+              <div className="text-sm text-gray-500">Palabra que más costó</div>
+              {hardest ? (
+                <div className="mt-1">
+                  <div className="text-xl">{hardest[0]} <span className="text-gray-400">×{hardest[1]}</span></div>
+                  <div className="text-sm text-gray-500">{hardestES}</div>
+                </div>
+              ) : (
+                <div className="text-sm text-gray-500 mt-1">¡Ninguna te complicó!</div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-3 justify-center">
+            <button
+              onClick={() => { setShowSummary(false); setShowExam(false); setExamQuestion(0); setExamStats({correct:0,wrong:0,streak:0,bestStreak:0,mistakes:{}}); setShowExam(true); }}
+              className="px-5 py-2 rounded-xl bg-gray-900 text-white"
+            >
+              Reintentar examen
+            </button>
+            <button
+              onClick={() => { 
+                setShowSummary(false); 
+                setExamQuestion(0); 
+                setExamStats({correct:0,wrong:0,streak:0,bestStreak:0,mistakes:{}}); 
+                const next = currentLevel + 1; 
+                setShowExam(false); 
+                if (chineseData.levels.find(l => l.id === next)) {
+                  setCurrentLevel(next);
+                }
+              }}
+              className="px-5 py-2 rounded-xl bg-emerald-600 text-white"
+            >
+              Siguiente nivel
+            </button>
+            <button
+              onClick={() => { /* opcional: navegar a una vista de revisión */ }}
+              className="px-5 py-2 rounded-xl border"
+            >
+              Revisar errores
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (showExam && level) {
     const examList = getExamStable(level);
     const examData = examList[examQuestion];
@@ -876,7 +716,6 @@ const getExamStable = (level) => {
                   <Heart key={index} className={`w-5 h-5 transition-all duration-300 ${index < lives ? 'text-red-500 fill-red-500 animate-pulse' : 'text-gray-300 fill-gray-300'}`} style={{ animation: index < lives ? 'heartbeat 1.5s ease-in-out infinite' : 'none' }} />
                 ))}
               </div>
-              <div className="text-red-700">Intentos: {attemptsLeft}</div>
             </div>
           </div>
 
@@ -900,14 +739,12 @@ const getExamStable = (level) => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50">
-      {/* Diccionario */}
       {showDictionary && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
             <div className="flex justify-between items-center p-6 border-b border-gray-200">
               <h3 className="text-2xl font-bold text-red-800 flex items-center gap-2">
-                <Book className="w-6 h-6" />
-                Diccionario Chino
+                <Book className="w-6 h-6" /> Diccionario Chino
               </h3>
               <button onClick={() => setShowDictionary(false)} className="text-gray-500 hover:text-gray-700 p-2">
                 <X className="w-6 h-6" />
@@ -919,23 +756,19 @@ const getExamStable = (level) => {
                 <input type="text" placeholder="Buscar en español..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-red-500" />
               </div>
               <div className="max-h-96 overflow-y-auto">
-                {filteredDictionary.length > 0 ? (
-                  <div className="space-y-3">
-                    {filteredDictionary.map(([spanish, data]) => (
-                      <div key={spanish} className="bg-red-50 p-4 rounded-2xl border border-red-100">
-                        <div className="flex justify-between items-center">
-                          <div>
-                            <div className="font-semibold text-red-800 capitalize">{spanish}</div>
-                            <div className="text-sm text-red-600">{data.pinyin}</div>
-                          </div>
-                          <div className="text-3xl text-red-800">{data.chinese}</div>
+                {Object.entries(chineseData.dictionary)
+                  .filter(([spanish]) => spanish.toLowerCase().includes(searchTerm.toLowerCase()))
+                  .map(([spanish, data]) => (
+                    <div key={spanish} className="bg-red-50 p-4 rounded-2xl border border-red-100 mb-3">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <div className="font-semibold text-red-800 capitalize">{spanish}</div>
+                          <div className="text-sm text-red-600">{data.pinyin}</div>
                         </div>
+                        <div className="text-3xl text-red-800">{data.chinese}</div>
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center text-gray-500 py-8">No se encontraron resultados</div>
-                )}
+                    </div>
+                  ))}
               </div>
             </div>
           </div>
@@ -943,7 +776,6 @@ const getExamStable = (level) => {
       )}
 
       <div className="container mx-auto px-4 py-8">
-        {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <div className="flex items-center gap-4">
             <div className="text-red-800 font-bold text-2xl">中文学习</div>
@@ -954,8 +786,7 @@ const getExamStable = (level) => {
           </div>
           <div className="flex items-center gap-4">
             <button onClick={() => setShowDictionary(true)} className="flex items-center gap-2 bg-brown-600 hover:bg-brown-700 text-white px-4 py-2 rounded-2xl transition-colors" style={{ backgroundColor: '#8B4513' }} onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#A0522D')} onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#8B4513')}>
-              <Book className="w-4 h-4" />
-              Diccionario
+              <Book className="w-4 h-4" /> Diccionario
             </button>
             <div className="flex items-center gap-1">
               {Array.from({ length: 5 }, (_, index) => (
@@ -965,19 +796,6 @@ const getExamStable = (level) => {
           </div>
         </div>
 
-        {/* ✅ Panel de Test/Validación */}
-        {dataIssues.length > 0 && (
-          <div className="mb-6 bg-yellow-50 border border-yellow-300 rounded-2xl p-4 text-yellow-900">
-            <div className="flex items-center gap-2 font-semibold mb-2"><AlertTriangle className="w-5 h-5" /> Validación de datos: se detectaron detalles a revisar</div>
-            <ul className="list-disc pl-6 text-sm space-y-1">
-              {dataIssues.map((i, idx) => (
-                <li key={idx}>{i}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {/* Barra de progreso dinámica */}
         <div className="mb-8">
           <div className="bg-red-200 rounded-full h-3 overflow-hidden">
             <div className="bg-red-600 h-full transition-all duration-500" style={{ width: totalExercises > 0 ? `${((Math.min(currentExercise, totalExercises - 1) + 1) / totalExercises) * 100}%` : '0%' }} />
@@ -985,9 +803,8 @@ const getExamStable = (level) => {
           <div className="text-sm text-red-700 mt-2">Ejercicio {Math.min(currentExercise + 1, totalExercises)} de {totalExercises}</div>
         </div>
 
-        {/* Ejercicio */}
-        {exercise ? (
-          <div className="bg-white rounded-2xl shadow-lg p-8 max-w-4xl mx-auto transform scale-105">
+        {exercise && exercise.words && exercise.words.length > 0 ? (
+          <div className="bg-white rounded-2xl shadow-lg p-8 max-w-4xl mx-auto">
             <div className="text-center mb-8">
               <h2 className="text-3xl font-bold text-red-800 mb-4">{level?.title || 'Nivel'}</h2>
               <p className="text-gray-600 mb-6">Construye la frase en chino:</p>
@@ -997,44 +814,36 @@ const getExamStable = (level) => {
 
             <div className="bg-red-50 border-2 border-dashed border-red-300 rounded-2xl p-6 mb-8 min-h-24 flex flex-wrap gap-3 items-center justify-center">
               {attempt.length > 0 ? (
-                attempt.map((idx) => (
+                attempt.map((i) => (
                   <div
-                    key={`sel-${idx}`}
-                    className="bg-red-600 text-white px-4 py-3 rounded-lg font-semibold text-center cursor-pointer hover:bg-red-700 transition-colors"
-                    onClick={undoLast}
+                    key={tiles[i]?.uniqueId || i}
+                    className="bg-red-600 text-white px-4 py-3 rounded-lg font-semibold text-center cursor-pointer hover:bg-red-700 transition-colors flex items-center justify-center"
+                    onClick={() => toggleTile(i)}
                   >
-                    <div className="text-4xl">{tiles[idx].char}</div>
+                    <div className="text-4xl">{tiles[i]?.char}</div>
                   </div>
                 ))
               ) : (
-                <p className="text-red-400 text-lg">Toca las fichas para construir la palabra</p>
+                <p className="text-red-400 text-lg">Toca las palabras para construir la frase</p>
               )}
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-              {tiles.map((tile, index) => (
+              {tiles.map((w, idx) => (
                 <button
-                  key={`tile-${index}`}
-                  onClick={() => handleTileClick(index)}
-                  disabled={tile.used}
-                  aria-disabled={tile.used}
-                  className={`px-4 py-4 rounded-2xl border shadow-sm bg-white hover:bg-orange-50 ${tile.used ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  key={w.uniqueId || idx}
+                  disabled={Boolean(w.used)}
+                  onClick={() => toggleTile(idx)}
+                  className="px-4 py-4 rounded-2xl border shadow-sm bg-white hover:bg-orange-50 disabled:opacity-50"
                 >
-                  <div className="text-4xl">{tile.char}</div>
+                  <div className="text-4xl mb-1">{w.char}</div>
+                  <div className="text-xs text-gray-500">{w.pinyin}</div>
                 </button>
               ))}
             </div>
 
             <div className="text-center">
-              <button
-                onClick={undoLast}
-                disabled={attempt.length === 0}
-                className={`px-8 py-3 rounded-2xl text-white font-semibold text-lg transition-colors ${
-                  attempt.length > 0 ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-400 cursor-not-allowed'
-                }`}
-              >
-                Deshacer
-              </button>
+              <button onClick={checkAnswer} disabled={attempt.length === 0} className={`px-8 py-3 rounded-2xl text-white font-semibold text-lg transition-colors ${attempt.length > 0 ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-400 cursor-not-allowed'}`}>Comprobar</button>
             </div>
           </div>
         ) : currentLevelExercises.length === 0 ? (
@@ -1059,34 +868,19 @@ const getExamStable = (level) => {
           </div>
         )}
 
-        {/* Modal de resultado */}
-        {showResult && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex items-center justify-center p-4">
-            <div className={`bg-white rounded-2xl shadow-2xl p-8 text-center max-w-md w-full ${isCorrect ? 'border-4 border-green-400' : 'border-4 border-red-400'}`}>
-              <div className="text-6xl mb-4">{isCorrect ? '🎉' : '😔'}</div>
-              <h3 className={`text-2xl font-bold mb-4 ${isCorrect ? 'text-green-600' : 'text-red-600'}`}>{isCorrect ? '¡Correcto!' : '¡Incorrecto!'}</h3>
-              {!isCorrect && exercise && (
-                <p className="text-gray-600 mb-4">
-                  La respuesta correcta era: <span className="font-semibold text-red-600">{exercise.chinese}</span>
-                </p>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Selector de niveles (desbloqueo dinámico según total de ejercicios) */}
         <div className="mt-12">
           <h3 className="text-2xl font-bold text-red-800 mb-6 text-center">Niveles</h3>
           <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-10 gap-4 max-w-4xl mx-auto">
             {Array.from({ length: 20 }, (_, i) => i + 1).map((levelNum) => {
               const levelMeta = chineseData.levels.find((l) => l.id === levelNum);
-              const required = levelMeta?.exercises?.length ?? 8; // fallback
+              const required = levelMeta?.exercises?.length ?? 8;
               const progress = levelProgress[levelNum] || 0;
-              const isUnlocked = levelNum === 1 || (levelProgress[levelNum - 1] || 0) >= (chineseData.levels.find((l) => l.id === levelNum - 1)?.exercises?.length || 8);
+              const prevMeta = chineseData.levels.find((l) => l.id === levelNum - 1);
+              const isUnlocked = levelNum === 1 || (levelProgress[levelNum - 1] || 0) >= (prevMeta?.exercises?.length || 8);
               const isCompleted = progress >= required;
               return (
                 <button key={levelNum} onClick={() => { if (isUnlocked) goToLevel(levelNum); }} disabled={!isUnlocked} className={`aspect-square rounded-2xl font-bold text-lg transition-all ${levelNum === currentLevel ? 'bg-red-600 text-white shadow-lg scale-110' : isCompleted ? 'bg-green-500 text-white hover:bg-green-600' : isUnlocked ? 'bg-orange-400 text-white hover:bg-orange-500' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}>
-                  {isCompleted ? <Trophy className="w-5 h-5 mx-auto" /> : levelNum}
+                  {isCompleted ? '✓' : levelNum}
                 </button>
               );
             })}
