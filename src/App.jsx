@@ -274,7 +274,6 @@ chineseData.levels = [
 ];
 // Extender a 20 niveles
 chineseData.levels = extendLevels(chineseData.levels);
-chineseData.levels = normalizeLevels(chineseData.levels);
 
 
 // --- App (idéntico flujo del canvas) ---
@@ -350,6 +349,8 @@ export default function App() {
     ...lvl,
     exercises: (lvl.exercises || []).map(ensureCharWords),
   }));
+
+  chineseData.levels = normalizeLevels(chineseData.levels);
 
   // Pool global ES para distractores desde niveles 7..20
   const spanishPoolFromLevels = (levels, minId = 7) => {
