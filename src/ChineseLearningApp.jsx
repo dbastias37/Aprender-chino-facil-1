@@ -278,7 +278,7 @@ chineseData.levels = normalizeLevels(chineseData.levels);
 
 
 // --- App (idéntico flujo del canvas) ---
-const ChineseLearningApp = () => {
+export default function ChineseLearningApp() {
   const [showWelcome, setShowWelcome] = useState(true);
   const [currentLevel, setCurrentLevel] = useState(1);
   const [currentExercise, setCurrentExercise] = useState(0);
@@ -303,120 +303,104 @@ const ChineseLearningApp = () => {
   const [gameOverType, setGameOverType] = useState(null);
   const [randomizedExercises, setRandomizedExercises] = useState({});
 
-const level = chineseData.levels.find((l) => l.id === currentLevel);
+  // === Helpers únicos (NO duplicar) ===
 
-// === Helpers examen y normalización (ÚNICO BLOQUE) ===
-
-// Barajador local, sin dependencias externas
-const shuffleLocal = (array) => {
-  const a = Array.isArray(array) ? [...array] : [];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-};
-
-// Convierte "汉字串" + "han zi chuan" -> [{char:'汉', pinyin:'han'}, ...]
-const toCharWords = (han, py) => {
-  const chars = Array.from(han).filter(c => /\S/.test(c));
-  const p = (py || "").trim().split(/\s+/);
-  if (!chars.length) return [];
-  // Empareja por índice; si pinyin es más corto, reutiliza el último
-  return chars.map((c, i) => ({
-    char: c,
-    pinyin: p[i] ?? p[p.length - 1] ?? '',
-    uniqueId: `w-${c}-${i}`
-  }));
-};
-
-// Garantiza que cada ejercicio tenga words por carácter (hanzi + pinyin)
-const ensureCharWords = (ex) => {
-  if (!ex) return ex;
-  const w = Array.isArray(ex.words) ? ex.words : [];
-  const needRebuild = !w.length || w.some(x => !x?.char) || (w.length === 1 && (ex.chinese || '').trim().length > 1);
-  if (needRebuild) {
-    const rebuilt = toCharWords(ex.chinese || "", ex.pinyin || "");
-    return { ...ex, words: rebuilt };
-  }
-  // Asegura uniqueId y pinyin
-  const safe = w.map((x, idx) => ({
-    ...x,
-    uniqueId: x.uniqueId || `w-${ex.id}-${idx}-${x.char || ''}`,
-    pinyin: x.pinyin ?? ''
-  }));
-  return { ...ex, words: safe };
-};
-
-// Normaliza TODOS los niveles a words por carácter
-const normalizeLevels = (levels) => (levels || []).map((lvl) => ({
-  ...lvl,
-  exercises: (lvl.exercises || []).map(ensureCharWords),
-}));
-
-// Construye un pool de distractores (ES) desde niveles >= minId (por defecto 7)
-const spanishPoolFromLevels = (levels, minId = 7) => {
-  const L = levels || [];
-  const pool = [];
-  for (const lvl of L) {
-    if ((lvl.id ?? 0) >= minId) {
-      for (const ex of (lvl.exercises || [])) {
-        if (ex?.spanish) pool.push(ex.spanish);
-      }
+  // Asegura barajador local
+  const shuffleLocal = (array) => {
+    const a = Array.isArray(array) ? [...array] : [];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
     }
-  }
-  return Array.from(new Set(pool));
-};
-
-// EXAMEN: 6 preguntas con 1 correcta + 3 distractores sólidos.
-// Para niveles >=7 usa pool global (niveles 7..20) si faltan distractores del propio nivel.
-const buildExamFromExercises = (exercises, n = 6, allLevels = chineseData.levels, levelId = 0) => {
-  const pool = (exercises || []).map(ex => ({ q: ex.chinese, ans: ex.spanish }));
-  const pick = (arr, k) => shuffleLocal(arr).slice(0, k);
-
-  const globalDistractors = spanishPoolFromLevels(allLevels, 7);
-
-  const makeQuestion = (item) => {
-    // Distractores primarios: del mismo nivel
-    const sameLevel = pool.filter(p => p.ans && p.ans !== item.ans).map(p => p.ans);
-    let candidates = Array.from(new Set(sameLevel));
-
-    // Si el nivel es >=7 o no alcanzan, completa con pool global (sin la correcta)
-    if ((levelId >= 7) || candidates.length < 3) {
-      const extras = globalDistractors.filter(x => x && x !== item.ans);
-      // mezcla y suma (evita duplicados)
-      candidates = Array.from(new Set([...candidates, ...pick(extras, 6)]));
-    }
-
-    const distractors = pick(candidates, 3);
-    const options = shuffleLocal([item.ans, ...distractors]);
-    const correct = options.indexOf(item.ans);
-    return { question: item.q, options, correct };
+    return a;
   };
 
-  return pick(pool, Math.min(n, pool.length)).map(makeQuestion);
-};
+  // Convierte cadena a lista de {char, pinyin}
+  const toCharWords = (han, py) => {
+    const chars = Array.from(han || '').filter(c => /\S/.test(c));
+    const p = (py || '').trim().split(/\s+/);
+    return chars.map((c, i) => ({
+      char: c,
+      pinyin: p[i] ?? p[p.length - 1] ?? '',
+      uniqueId: `w-${c}-${i}`
+    }));
+  };
 
-// Cache de examen por nivel (estable)
-const [examCache, setExamCache] = React.useState({});
-const getExamStable = (level) => {
-  if (!level) return [];
-  const id = level.id || 0;
-  if (examCache[id]) return examCache[id];
-  const ex = (Array.isArray(level.exam) && level.exam.length >= 6)
-    ? level.exam.slice(0, 6)
-    : buildExamFromExercises(level.exercises || [], 6, chineseData.levels, id);
-  setExamCache(prev => ({ ...prev, [id]: ex }));
-  return ex;
-};
+  // Asegura que cada ejercicio tenga words por carácter (con pinyin)
+  const ensureCharWords = (ex) => {
+    if (!ex) return ex;
+    let words = Array.isArray(ex.words) ? ex.words : [];
+    const multiChar = (ex.chinese || '').replace(/\s+/g,'').length > 1;
+    const needRebuild = !words.length || words.some(x => !x?.char) || (multiChar && words.length === 1);
 
+    if (needRebuild) {
+      words = toCharWords(ex.chinese || '', ex.pinyin || '');
+    } else {
+      words = words.map((w, idx) => ({
+        ...w,
+        uniqueId: w.uniqueId || `w-${ex.id}-${idx}-${w.char || ''}`,
+        pinyin: w.pinyin ?? ''
+      }));
+    }
+    return { ...ex, words };
+  };
 
-  
+  // Normaliza TODOS los niveles carácter por carácter
+  const normalizeLevels = (levels) => (levels || []).map((lvl) => ({
+    ...lvl,
+    exercises: (lvl.exercises || []).map(ensureCharWords),
+  }));
 
+  // Pool global ES para distractores desde niveles 7..20
+  const spanishPoolFromLevels = (levels, minId = 7) => {
+    const pool = [];
+    (levels || []).forEach((lvl) => {
+      if ((lvl.id ?? 0) >= minId) {
+        (lvl.exercises || []).forEach(ex => { if (ex?.spanish) pool.push(ex.spanish) })
+      }
+    });
+    return Array.from(new Set(pool));
+  };
 
+  // Estado para cachear examen por nivel
+  const [examCache, setExamCache] = React.useState({});
 
-  
+  // Construye examen (6 preguntas), con 1 correcta + 3 distractores sólidos
+  const buildExamFromExercises = (exercises, n = 6, allLevels = chineseData.levels, levelId = 0) => {
+    const pool = (exercises || []).map(ex => ({ q: ex.chinese, ans: ex.spanish })).filter(x => x.q && x.ans);
+    const pick = (arr, k) => shuffleLocal(arr).slice(0, k);
+    const globalDistractors = spanishPoolFromLevels(allLevels, 7);
 
+    const makeQuestion = (item) => {
+      const sameLevel = pool.filter(p => p.ans !== item.ans).map(p => p.ans);
+      let candidates = Array.from(new Set(sameLevel));
+
+      if (levelId >= 7 || candidates.length < 3) {
+        const extras = globalDistractors.filter(x => x && x !== item.ans);
+        candidates = Array.from(new Set([...candidates, ...pick(extras, 8)]));
+      }
+
+      const distractors = pick(candidates, 3);
+      const options = shuffleLocal([item.ans, ...distractors]);
+      const correct = options.indexOf(item.ans);
+      return { question: item.q, options, correct };
+    };
+
+    return pick(pool, Math.min(n, pool.length)).map(makeQuestion);
+  };
+
+  const getExamStable = (level) => {
+    if (!level) return [];
+    const id = level.id || 0;
+    if (examCache[id]) return examCache[id];
+    const ex = (Array.isArray(level.exam) && level.exam.length >= 6)
+      ? level.exam.slice(0,6)
+      : buildExamFromExercises(level.exercises || [], 6, chineseData.levels, id);
+    setExamCache(prev => ({ ...prev, [id]: ex }));
+    return ex;
+  };
+
+  const level = chineseData.levels.find((l) => l.id === currentLevel);
   const getRandomizedExercises = (levelId) => {
     if (!randomizedExercises[levelId]) {
       const levelData = chineseData.levels.find((l) => l.id === levelId);
@@ -431,11 +415,10 @@ const getExamStable = (level) => {
   };
 
   const currentLevelExercises = getRandomizedExercises(currentLevel);
+  if (!level) return <div className="p-6">Cargando…</div>;
+  const exercise = currentLevelExercises[currentExercise];
+  if (!exercise) return <div className="p-6">Preparando ejercicios…</div>;
   const totalExercises = currentLevelExercises.length || (level?.exercises?.length ?? 0);
-  const exercise =
-    currentLevelExercises && currentLevelExercises.length > currentExercise
-      ? currentLevelExercises[currentExercise]
-      : null;
 
   useEffect(() => {
     const style = document.createElement('style');
@@ -460,7 +443,7 @@ const getExamStable = (level) => {
 
   useEffect(() => {
     if (exercise?.words?.length) {
-      setTiles(shuffleLocal(exercise.words).map(t => ({ ...t, used: false })));
+      setTiles(shuffleLocal(exercise.words).map(t => ({...t, used:false})));
       setAttempt([]);
     }
   }, [exercise]);
@@ -472,12 +455,12 @@ const getExamStable = (level) => {
 
   const checkAnswer = () => {
     if (!exercise) return;
+    const target = (exercise?.chinese || '').replace(/\s+/g,'');
     const user = attempt.map(i => tiles[i]?.char).join('');
-    const target = (exercise?.chinese || '').replace(/\s+/g, '');
-    const correct = user === target;
-    setIsCorrect(correct);
+    const ok = user === target;
+    setIsCorrect(ok);
     setShowResult(true);
-    if (!correct) {
+    if (!ok) {
       const newLives = Math.max(0, lives - 1);
       setLives(newLives);
       if (newLives === 0) {
@@ -487,7 +470,7 @@ const getExamStable = (level) => {
     }
     setTimeout(() => {
       setShowResult(false);
-      if (correct) {
+      if (ok) {
         if (currentExercise >= totalExercises - 1) {
           setShowExam(true);
           setLevelProgress({ ...levelProgress, [currentLevel]: totalExercises });
@@ -505,11 +488,12 @@ const getExamStable = (level) => {
   const handleExamAnswer = (selectedIndex) => {
     const examList = getExamStable(level);
     const q = examList[examQuestion];
-    const isCorrect = selectedIndex === q.correct;
+    if (!q) return;
 
+    const ok = selectedIndex === q.correct;
     setExamStats(prev => {
       const next = { ...prev };
-      if (isCorrect) {
+      if (ok) {
         next.correct += 1;
         next.streak += 1;
         next.bestStreak = Math.max(next.bestStreak, next.streak);
@@ -522,7 +506,7 @@ const getExamStable = (level) => {
       return next;
     });
 
-    if (examQuestion < examList.length - 1) {
+    if (examQuestion < (examList.length - 1)) {
       setExamQuestion(examQuestion + 1);
     } else {
       setShowSummary(true);
@@ -630,7 +614,7 @@ const getExamStable = (level) => {
 
   if (showSummary) {
     const examList = getExamStable(level);
-    const hardest = Object.entries(examStats.mistakes).sort((a,b) => b[1]-a[1])[0];
+    const hardest = Object.entries(examStats.mistakes).sort((a,b)=>b[1]-a[1])[0];
     let hardestES = '';
     if (hardest?.[0]) {
       const found = (level.exercises || []).find(ex => ex.chinese === hardest[0]);
@@ -641,7 +625,7 @@ const getExamStable = (level) => {
       <div className="min-h-screen p-6 flex items-center justify-center bg-gradient-to-br from-emerald-50 to-teal-50">
         <div className="max-w-xl w-full bg-white rounded-3xl shadow-lg p-8 text-center">
           <h2 className="text-3xl font-bold text-emerald-700 mb-2">¡Felicitaciones!</h2>
-          <p className="text-gray-600 mb-6">Has completado el examen del nivel {currentLevel}.</p>
+          <p className="text-gray-600 mb-6">Examen del nivel {currentLevel} completado.</p>
 
           <div className="grid grid-cols-2 gap-4 text-left mb-6">
             <div className="p-4 rounded-2xl bg-emerald-50">
@@ -667,31 +651,16 @@ const getExamStable = (level) => {
 
           <div className="flex flex-wrap gap-3 justify-center">
             <button
-              onClick={() => { setShowSummary(false); setShowExam(false); setExamQuestion(0); setExamStats({correct:0,wrong:0,streak:0,bestStreak:0,mistakes:{}}); setShowExam(true); }}
+              onClick={() => { setShowSummary(false); setExamQuestion(0); setExamStats({correct:0,wrong:0,streak:0,bestStreak:0,mistakes:{}}); setShowExam(true); }}
               className="px-5 py-2 rounded-xl bg-gray-900 text-white"
             >
-              Reintentar examen
+              Reintentar
             </button>
             <button
-              onClick={() => { 
-                setShowSummary(false); 
-                setExamQuestion(0); 
-                setExamStats({correct:0,wrong:0,streak:0,bestStreak:0,mistakes:{}}); 
-                const next = currentLevel + 1; 
-                setShowExam(false); 
-                if (chineseData.levels.find(l => l.id === next)) {
-                  setCurrentLevel(next);
-                }
-              }}
+              onClick={() => { setShowSummary(false); setShowExam(false); setExamQuestion(0); setExamStats({correct:0,wrong:0,streak:0,bestStreak:0,mistakes:{}}); const next=currentLevel+1; if(chineseData.levels.find(l=>l.id===next)){ setCurrentLevel(next);} }}
               className="px-5 py-2 rounded-xl bg-emerald-600 text-white"
             >
               Siguiente nivel
-            </button>
-            <button
-              onClick={() => { /* opcional: navegar a una vista de revisión */ }}
-              className="px-5 py-2 rounded-xl border"
-            >
-              Revisar errores
             </button>
           </div>
         </div>
@@ -699,9 +668,10 @@ const getExamStable = (level) => {
     );
   }
 
-  if (showExam && level) {
+  if (showExam) {
     const examList = getExamStable(level);
-    const examData = examList[examQuestion];
+    const q = examList[examQuestion];
+    if (!q) return <div className="p-6">Generando examen…</div>;
     return (
       <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50">
         <div className="container mx-auto px-4 py-8">
@@ -721,11 +691,11 @@ const getExamStable = (level) => {
 
           <div className="bg-white rounded-2xl shadow-lg p-8 max-w-2xl mx-auto">
             <div className="text-center mb-8">
-              <div className="text-6xl mb-4">{examData.question}</div>
+              <div className="text-6xl mb-4">{q.question}</div>
               <p className="text-gray-600">¿Qué significa este texto en chino?</p>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              {examData.options.map((option, index) => (
+              {q.options.map((option, index) => (
                 <button key={index} onClick={() => handleExamAnswer(index)} className="bg-red-100 hover:bg-red-200 text-red-800 p-4 rounded-2xl font-semibold transition-colors border-2 border-transparent hover:border-red-300">
                   {option}
                 </button>
@@ -812,27 +782,11 @@ const getExamStable = (level) => {
               <div className="text-lg text-red-500 mb-8">{exercise.pinyin}</div>
             </div>
 
-            <div className="bg-red-50 border-2 border-dashed border-red-300 rounded-2xl p-6 mb-8 min-h-24 flex flex-wrap gap-3 items-center justify-center">
-              {attempt.length > 0 ? (
-                attempt.map((i) => (
-                  <div
-                    key={tiles[i]?.uniqueId || i}
-                    className="bg-red-600 text-white px-4 py-3 rounded-lg font-semibold text-center cursor-pointer hover:bg-red-700 transition-colors flex items-center justify-center"
-                    onClick={() => toggleTile(i)}
-                  >
-                    <div className="text-4xl">{tiles[i]?.char}</div>
-                  </div>
-                ))
-              ) : (
-                <p className="text-red-400 text-lg">Toca las palabras para construir la frase</p>
-              )}
-            </div>
-
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-              {tiles.map((w, idx) => (
+              {(tiles || []).map((w, idx) => (
                 <button
                   key={w.uniqueId || idx}
-                  disabled={Boolean(w.used)}
+                  disabled={w.used}
                   onClick={() => toggleTile(idx)}
                   className="px-4 py-4 rounded-2xl border shadow-sm bg-white hover:bg-orange-50 disabled:opacity-50"
                 >
@@ -840,6 +794,9 @@ const getExamStable = (level) => {
                   <div className="text-xs text-gray-500">{w.pinyin}</div>
                 </button>
               ))}
+            </div>
+            <div className="text-sm text-gray-500 mb-3">
+              Construye: <span className="font-mono">{attempt.map(i=>tiles[i]?.char).join('')}</span>
             </div>
 
             <div className="text-center">
@@ -889,6 +846,4 @@ const getExamStable = (level) => {
       </div>
     </div>
   );
-};
-
-export default ChineseLearningApp;
+}
