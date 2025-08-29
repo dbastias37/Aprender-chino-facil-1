@@ -2,6 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { Book, Heart, Star, Trophy, X, Search, AlertTriangle } from 'lucide-react';
 import { extendLevels } from './data/levels';
 
+const normalizeLevels = (levels) => (levels || []).map((lvl) => ({
+  ...lvl,
+  exercises: (lvl.exercises || []).map((ex) => ({
+    ...ex,
+    words: (ex.words || []).map((w, idx) => ({
+      ...w,
+      uniqueId: w.uniqueId || `w-${lvl.id}-${ex.id}-${idx}-${w.char || ''}`
+    }))
+  }))
+}));
+
+
 const shuffleLocal = (array) => {
   const a = Array.isArray(array) ? [...array] : [];
   for (let i = a.length - 1; i > 0; i--) {
@@ -283,6 +295,7 @@ chineseData.levels = [
 ];
 // Extender a 20 niveles
 chineseData.levels = extendLevels(chineseData.levels);
+chineseData.levels = normalizeLevels(chineseData.levels);
 
 
 // --- App (idéntico flujo del canvas) ---
@@ -303,7 +316,27 @@ const ChineseLearningApp = () => {
   const [gameOverType, setGameOverType] = useState(null);
   const [randomizedExercises, setRandomizedExercises] = useState({});
 
-  const level = chineseData.levels.find((l) => l.id === currentLevel);
+  
+// Helpers examen (6 preguntas) + caché por nivel (estable)
+const buildExamFromExercises = (exercises, n = 6) => {
+  const pool = (exercises || []).map(ex => ({ q: ex.chinese, ans: ex.spanish }));
+  const pick = (arr, k) => shuffleLocal(arr).slice(0, k);
+  return pick(pool, Math.min(n, pool.length)).map((item) => {
+    const distractors = pool.filter(p => p.ans !== item.ans).map(p => p.ans);
+    const options = shuffleLocal([item.ans, ...pick(distractors, 3)]);
+    return { question: item.q, options, correct: options.indexOf(item.ans) };
+  });
+};
+const [examCache, setExamCache] = React.useState({});
+const getExamStable = (level) => {
+  if (!level) return [];
+  const id = level.id || 0;
+  if (examCache[id]) return examCache[id];
+  const ex = (level.exam && level.exam.length >= 6) ? level.exam.slice(0,6) : buildExamFromExercises(level.exercises || [], 6);
+  setExamCache(prev => ({ ...prev, [id]: ex }));
+  return ex;
+};
+const level = chineseData.levels.find((l) => l.id === currentLevel);
 // Helpers examen robustos (6 preguntas)
 const buildExamFromExercises = (exercises, n = 6) => {
   const pool = (exercises || []).map(ex => ({ q: ex.chinese, ans: ex.spanish }));
@@ -410,7 +443,7 @@ const getExam = (level) => {
   };
 
   const handleExamAnswer = (selectedOption) => {
-    const examList = getExam(level);
+    const examList = getExamStable(level);
     const examData = examList[examQuestion];
     const correct = selectedOption === examData.correct;
     if (correct) {
@@ -508,14 +541,14 @@ const getExam = (level) => {
               <p className="text-gray-600 mb-6">Practica más, recuerda los caracteres y su significado y vuelve a intentarlo.</p>
             </>
           )}
-          <button onClick={restartLevel} className="bg-red-600 hover:bg-red-700 text-white px-8 py-3 rounded-xl font-semibold text-lg transition-colors w-full">Reintentar</button>
+          <button onClick={restartLevel} className="bg-red-600 hover:bg-red-700 text-white px-8 py-3 rounded-2xl font-semibold text-lg transition-colors w-full">Reintentar</button>
         </div>
       </div>
     );
   }
 
   if (showExam && level) {
-    const examList = getExam(level);
+    const examList = getExamStable(level);
     const examData = examList[examQuestion];
     return (
       <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50">
@@ -542,7 +575,7 @@ const getExam = (level) => {
             </div>
             <div className="grid grid-cols-2 gap-4">
               {examData.options.map((option, index) => (
-                <button key={index} onClick={() => handleExamAnswer(index)} className="bg-red-100 hover:bg-red-200 text-red-800 p-4 rounded-xl font-semibold transition-colors border-2 border-transparent hover:border-red-300">
+                <button key={index} onClick={() => handleExamAnswer(index)} className="bg-red-100 hover:bg-red-200 text-red-800 p-4 rounded-2xl font-semibold transition-colors border-2 border-transparent hover:border-red-300">
                   {option}
                 </button>
               ))}
@@ -569,13 +602,13 @@ const getExam = (level) => {
             <div className="p-6">
               <div className="relative mb-6">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                <input type="text" placeholder="Buscar en español..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500" />
+                <input type="text" placeholder="Buscar en español..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-red-500" />
               </div>
               <div className="max-h-96 overflow-y-auto">
                 {Object.entries(chineseData.dictionary)
                   .filter(([spanish]) => spanish.toLowerCase().includes(searchTerm.toLowerCase()))
                   .map(([spanish, data]) => (
-                    <div key={spanish} className="bg-red-50 p-4 rounded-xl border border-red-100 mb-3">
+                    <div key={spanish} className="bg-red-50 p-4 rounded-2xl border border-red-100 mb-3">
                       <div className="flex justify-between items-center">
                         <div>
                           <div className="font-semibold text-red-800 capitalize">{spanish}</div>
@@ -601,7 +634,7 @@ const getExam = (level) => {
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <button onClick={() => setShowDictionary(true)} className="flex items-center gap-2 bg-brown-600 hover:bg-brown-700 text-white px-4 py-2 rounded-xl transition-colors" style={{ backgroundColor: '#8B4513' }} onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#A0522D')} onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#8B4513')}>
+            <button onClick={() => setShowDictionary(true)} className="flex items-center gap-2 bg-brown-600 hover:bg-brown-700 text-white px-4 py-2 rounded-2xl transition-colors" style={{ backgroundColor: '#8B4513' }} onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#A0522D')} onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#8B4513')}>
               <Book className="w-4 h-4" /> Diccionario
             </button>
             <div className="flex items-center gap-1">
@@ -628,11 +661,11 @@ const getExam = (level) => {
               <div className="text-lg text-red-500 mb-8">{exercise.pinyin}</div>
             </div>
 
-            <div className="bg-red-50 border-2 border-dashed border-red-300 rounded-xl p-6 mb-8 min-h-24 flex flex-wrap gap-3 items-center justify-center">
+            <div className="bg-red-50 border-2 border-dashed border-red-300 rounded-2xl p-6 mb-8 min-h-24 flex flex-wrap gap-3 items-center justify-center">
               {selectedWords.length > 0 ? (
                 selectedWords.map((wordObj) => (
                   <div key={wordObj.uniqueId} className="bg-red-600 text-white px-4 py-3 rounded-lg font-semibold text-center cursor-pointer hover:bg-red-700 transition-colors flex flex-col items-center" onClick={() => handleWordClick(wordObj)}>
-                    <div className="text-xl">{wordObj.char}</div>
+                    <div className="text-4xl">{wordObj.char}</div>
                     <div className="text-xs opacity-90">{wordObj.pinyin}</div>
                   </div>
                 ))
@@ -643,35 +676,35 @@ const getExam = (level) => {
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
               {exercise.words.map((wordObj, index) => (
-                <button key={wordObj.uniqueId || `word-${index}`} onClick={() => handleWordClick(wordObj)} className={`p-4 rounded-xl font-semibold transition-colors border-2 text-center ${selectedWords.some((w) => w.uniqueId === wordObj.uniqueId) ? 'bg-red-200 text-red-800 border-red-400' : 'bg-orange-100 text-orange-800 border-orange-300 hover:bg-orange-200'}`}>
-                  <div className="text-xl mb-1">{wordObj.char}</div>
+                <button key={wordObj.uniqueId || `word-${index}`} onClick={() => handleWordClick(wordObj)} className={`p-4 rounded-2xl font-semibold transition-colors border-2 text-center ${selectedWords.some((w) => w.uniqueId === wordObj.uniqueId) ? 'bg-red-200 text-red-800 border-red-400' : 'bg-orange-100 text-orange-800 border-orange-300 hover:bg-orange-200'}`}>
+                  <div className="text-4xl mb-1">{wordObj.char}</div>
                   <div className="text-sm opacity-75">{wordObj.pinyin}</div>
                 </button>
               ))}
             </div>
 
             <div className="text-center">
-              <button onClick={checkAnswer} disabled={selectedWords.length === 0} className={`px-8 py-3 rounded-xl text-white font-semibold text-lg transition-colors ${selectedWords.length > 0 ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-400 cursor-not-allowed'}`}>Comprobar</button>
+              <button onClick={checkAnswer} disabled={selectedWords.length === 0} className={`px-8 py-3 rounded-2xl text-white font-semibold text-lg transition-colors ${selectedWords.length > 0 ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-400 cursor-not-allowed'}`}>Comprobar</button>
             </div>
           </div>
         ) : currentLevelExercises.length === 0 ? (
           <div className="bg-white rounded-2xl shadow-lg p-8 max-w-4xl mx-auto text-center">
             <div className="text-gray-600 mb-4">Inicializando nivel...</div>
-            <button onClick={() => goToLevel(currentLevel)} className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-xl">Recargar Nivel</button>
+            <button onClick={() => goToLevel(currentLevel)} className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-2xl">Recargar Nivel</button>
           </div>
         ) : currentExercise >= totalExercises ? (
           <div className="bg-white rounded-2xl shadow-lg p-8 max-w-4xl mx-auto text-center">
             <div className="text-green-600 text-xl font-semibold mb-4">¡Nivel Completado!</div>
             <div className="text-gray-600 mb-6">Has terminado todos los ejercicios. ¡Ahora el examen!</div>
-            <button onClick={() => setShowExam(true)} className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-xl font-semibold">Comenzar Examen</button>
+            <button onClick={() => setShowExam(true)} className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-2xl font-semibold">Comenzar Examen</button>
           </div>
         ) : (
           <div className="bg-white rounded-2xl shadow-lg p-8 max-w-4xl mx-auto text-center">
             <div className="text-red-600 mb-4">Error: Ejercicio no disponible</div>
             <div className="text-gray-600 mb-4">Ejercicio {currentExercise + 1} • Nivel {currentLevel}</div>
             <div className="flex gap-4 justify-center">
-              <button onClick={() => setCurrentExercise(0)} className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-xl">Reiniciar Nivel</button>
-              <button onClick={() => goToLevel(currentLevel)} className="bg-orange-600 hover:bg-orange-700 text-white px-6 py-2 rounded-xl">Recargar Ejercicios</button>
+              <button onClick={() => setCurrentExercise(0)} className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-2xl">Reiniciar Nivel</button>
+              <button onClick={() => goToLevel(currentLevel)} className="bg-orange-600 hover:bg-orange-700 text-white px-6 py-2 rounded-2xl">Recargar Ejercicios</button>
             </div>
           </div>
         )}
@@ -687,7 +720,7 @@ const getExam = (level) => {
               const isUnlocked = levelNum === 1 || (levelProgress[levelNum - 1] || 0) >= (prevMeta?.exercises?.length || 8);
               const isCompleted = progress >= required;
               return (
-                <button key={levelNum} onClick={() => { if (isUnlocked) goToLevel(levelNum); }} disabled={!isUnlocked} className={`aspect-square rounded-xl font-bold text-lg transition-all ${levelNum === currentLevel ? 'bg-red-600 text-white shadow-lg scale-110' : isCompleted ? 'bg-green-500 text-white hover:bg-green-600' : isUnlocked ? 'bg-orange-400 text-white hover:bg-orange-500' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}>
+                <button key={levelNum} onClick={() => { if (isUnlocked) goToLevel(levelNum); }} disabled={!isUnlocked} className={`aspect-square rounded-2xl font-bold text-lg transition-all ${levelNum === currentLevel ? 'bg-red-600 text-white shadow-lg scale-110' : isCompleted ? 'bg-green-500 text-white hover:bg-green-600' : isUnlocked ? 'bg-orange-400 text-white hover:bg-orange-500' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}>
                   {isCompleted ? '✓' : levelNum}
                 </button>
               );
