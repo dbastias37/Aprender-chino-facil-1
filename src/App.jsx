@@ -1,6 +1,47 @@
 import React, { useState, useEffect } from 'react';
 import { Book, Heart, Star, Trophy, X, Search, AlertTriangle } from 'lucide-react';
+// === Character tiles helpers (added) ===
+const splitIntoCharTiles = (exercise) => {
+  if (!exercise || !exercise.words) return [];
+  const tiles = [];
+  const pushTile = (char, pinyin, base) => {
+    tiles.push({ char, pinyin: pinyin || '', uniqueId: `${base}-${Math.random().toString(36).slice(2,8)}` });
+  };
+  (exercise.words || []).forEach((w) => {
+    const chars = Array.from((w.char || '').normalize());
+    let pys = (w.pinyin || '').trim().split(/\s+/).filter(Boolean);
+    if (pys.length !== chars.length) {
+      pys = chars.map(() => (w.pinyin || '').split(/\s+/)[0] || '');
+    }
+    chars.forEach((ch, i) => pushTile(ch, pys[i], w.uniqueId || 'tile'));
+  });
+  return tiles;
+};
 
+const shuffleNonTrivial = (arr, correctChars) => {
+  let tries = 0;
+  let out = [...arr];
+  const fisher = (a) => {
+    for (let i=a.length-1; i>0; i--) {
+      const j = Math.floor(Math.random() * (i+1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  };
+  const isLinearStart = (aChars, correct) => aChars.length >= 2 && aChars[0] === correct[0] && aChars[1] === correct[1];
+  while (tries < 5) {
+    out = fisher([...arr]);
+    const aChars = out.map(t => t.char);
+    const same = aChars.join('') === correctChars.join('');
+    if (!same && !isLinearStart(aChars, correctChars)) break;
+    tries++;
+  }
+  if (tries >= 5 && out.length > 1) {
+    [out[0], out[1]] = [out[1], out[0]];
+  }
+  return out;
+};
+// === End helpers ===
 // Datos (versión compacta con 6 niveles actuales). Si quieres 20 niveles, te los agrego luego.
 const chineseData = {
   dictionary: {
@@ -321,6 +362,17 @@ const ChineseLearningApp = () => {
       ? currentLevelExercises[currentExercise]
       : null;
 
+  // Seed para forzar rebarajado entre intentos/ejercicios
+  const [shuffleSeed, setShuffleSeed] = useState(0);
+  const correctChars = Array.from((exercise?.chinese || '').normalize());
+
+  // Tiles por carácter SIEMPRE + shuffle no trivial
+  const tiles = React.useMemo(() => {
+    if (!exercise) return [];
+    const expanded = splitIntoCharTiles(exercise);
+    return shuffleNonTrivial(expanded, correctChars);
+  }, [exercise, shuffleSeed]);
+
   useEffect(() => {
     const style = document.createElement('style');
     style.textContent = `@keyframes heartbeat{0%{transform:scale(1)}14%{transform:scale(1.15)}28%{transform:scale(1)}42%{transform:scale(1.15)}70%{transform:scale(1)}}`;
@@ -357,7 +409,7 @@ const ChineseLearningApp = () => {
     const correct = userAnswer === correctAnswer;
     setIsCorrect(correct);
     setShowResult(true);
-    if (!correct) {
+    if (!correct) { setShuffleSeed((s)=>s+1);
       const newLives = Math.max(0, lives - 1);
       setLives(newLives);
       if (newLives === 0) {
@@ -590,7 +642,7 @@ const ChineseLearningApp = () => {
         </div>
 
         {exercise && exercise.words && exercise.words.length > 0 ? (
-          <div className="bg-white rounded-2xl shadow-lg p-8 max-w-4xl mx-auto">
+          <div className="bg-white rounded-2xl shadow-lg p-8 max-w-4xl mx-auto" style={{ transform: 'scale(1.05)' }}>
             <div className="text-center mb-8">
               <h2 className="text-3xl font-bold text-red-800 mb-4">{level?.title || 'Nivel'}</h2>
               <p className="text-gray-600 mb-6">Construye la frase en chino:</p>
@@ -607,13 +659,13 @@ const ChineseLearningApp = () => {
                   </div>
                 ))
               ) : (
-                <p className="text-red-400 text-lg">Toca las palabras para construir la frase</p>
+                <p className="text-red-400 text-lg">Toca los caracteres para construir la frase</p>
               )}
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-              {exercise.words.map((wordObj, index) => (
-                <button key={wordObj.uniqueId || `word-${index}`} onClick={() => handleWordClick(wordObj)} className={`p-4 rounded-xl font-semibold transition-colors border-2 text-center ${selectedWords.some((w) => w.uniqueId === wordObj.uniqueId) ? 'bg-red-200 text-red-800 border-red-400' : 'bg-orange-100 text-orange-800 border-orange-300 hover:bg-orange-200'}`}>
+              {tiles.map((wordObj, index) => (
+                <button key={wordObj.uniqueId || `word-${index}`} onClick={() => handleWordClick(wordObj)} className={`p-4 rounded-xl border transition-colors ${selectedWords.some((w) => w.uniqueId === wordObj.uniqueId) ? 'bg-red-100 text-red-800 border-red-300' : 'bg-orange-100 text-orange-800 border-orange-300 hover:bg-orange-200'}`}>
                   <div className="text-xl mb-1">{wordObj.char}</div>
                   <div className="text-sm opacity-75">{wordObj.pinyin}</div>
                 </button>
