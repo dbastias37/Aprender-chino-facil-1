@@ -280,10 +280,11 @@ chineseData.levels = extendLevels(chineseData.levels);
 
 // --- App (idéntico flujo del canvas) ---
 export default function App() {
+  const MAX_LIVES = 4;
   const [showWelcome, setShowWelcome] = useState(true);
   const [currentLevel, setCurrentLevel] = useState(1);
   const [currentExercise, setCurrentExercise] = useState(0);
-  const [lives, setLives] = useState(5);
+  const [lives, setLives] = useState(MAX_LIVES);
 
   const [showRescue, setShowRescue] = useState(false);
   const [rescueSummary, setRescueSummary] = useState(null);
@@ -306,6 +307,14 @@ export default function App() {
   const [isCorrect, setIsCorrect] = useState(false);
   const [gameOverType, setGameOverType] = useState(null);
   const [randomizedExercises, setRandomizedExercises] = useState({});
+
+  useEffect(() => {
+    if (gameOverType === 'noLives') {
+      // limpiar cualquier resumen previo y abrir el minijuego
+      setRescueSummary(null);
+      setShowRescue(true);
+    }
+  }, [gameOverType]);
 
   // === Helpers únicos (NO duplicar) ===
 
@@ -549,7 +558,7 @@ export default function App() {
 
   const restartLevel = () => {
     setCurrentExercise(0);
-    setLives(5);
+    setLives(MAX_LIVES);
     setGameOverType(null);
     setShowResult(false);
     setShowExam(false);
@@ -654,11 +663,8 @@ export default function App() {
               <h2 className="text-2xl font-bold text-red-600 mb-4">¡Has perdido todas tus vidas!</h2>
               <p className="text-gray-600 mb-6">Inténtalo de nuevo. Recuerda bien los caracteres y su significado.</p>
               <div className="flex flex-col gap-3 items-center mt-4">
-                <button onClick={()=>setShowRescue(true)} className="px-5 py-2 rounded-xl bg-emerald-600 text-white">Rescatar vidas (minijuego)</button>
-                <div className="flex gap-2">
-                  <button onClick={()=>{ setGameOverType(null); }} className="px-4 py-2 rounded-xl border">Volver al último nivel</button>
-                  <button onClick={()=>{ setGameOverType(null); setCurrentLevel(1); setCurrentExercise(0); }} className="px-4 py-2 rounded-xl border">Pantalla principal</button>
-                </div>
+                <button onClick={() => setShowRescue(true)} className="px-5 py-2 rounded-xl bg-emerald-600 text-white">Reintentar (minijuego)</button>
+                <button onClick={() => { setGameOverType(null); setCurrentLevel(1); setCurrentExercise(0); }} className="px-4 py-2 rounded-xl border">Pantalla principal</button>
               </div>
               {showRescue && (
                 <RescueLivesGame
@@ -666,22 +672,24 @@ export default function App() {
                   currentLevel={currentLevel}
                   onClose={({ pagesCompleted, totalPages, hearts }) => {
                     setShowRescue(false);
-                    // Otorgar vidas y salir del Game Over si ganó al menos 1
+
+                    // hearts puede ser 'full' | 2 | 1 | 0
                     if (hearts === 'full') {
-                      setLives(5);
-                      setGameOverType(null);
+                      setLives(MAX_LIVES);
+                      setGameOverType(null); // ahora sí vuelve al juego con 4 vidas
                       setRescueSummary({ hearts: 'full', pagesCompleted, totalPages });
                     } else if (hearts >= 2) {
-                      setLives(prev => Math.min(5, (prev || 0) + 2));
+                      setLives(prev => Math.min(MAX_LIVES, (prev || 0) + 2));
                       setGameOverType(null);
                       setRescueSummary({ hearts: 2, pagesCompleted, totalPages });
                     } else if (hearts === 1) {
-                      setLives(prev => Math.min(5, (prev || 0) + 1));
+                      setLives(prev => Math.min(MAX_LIVES, (prev || 0) + 1));
                       setGameOverType(null);
                       setRescueSummary({ hearts: 1, pagesCompleted, totalPages });
                     } else {
-                      // 0 páginas → sin premio, sigue en game over
+                      // 0 vidas recuperadas → seguir en game over, NO salir a jugar
                       setRescueSummary({ hearts: 0, pagesCompleted, totalPages });
+                      // Importante: NO hacer setGameOverType(null) aquí.
                     }
                   }}
                 />
@@ -693,7 +701,12 @@ export default function App() {
                 actions={[{
                   label: 'Volver al juego',
                   className: 'px-4 py-2 rounded-xl bg-emerald-600 text-white',
-                  onClick: () => { setRescueSummary(null); setGameOverType(null); }
+                  onClick: () => {
+                    if (lives > 0) {
+                      setRescueSummary(null);
+                      setGameOverType(null);
+                    }
+                  }
                 }]}
               >
                 <div className="text-gray-700">
@@ -731,7 +744,7 @@ export default function App() {
             </div>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-1">
-                {Array.from({ length: 5 }, (_, index) => (
+            {Array.from({ length: MAX_LIVES }, (_, index) => (
                   <Heart key={index} className={`w-5 h-5 transition-all duration-300 ${index < lives ? 'text-red-500 fill-red-500 animate-pulse' : 'text-gray-300 fill-gray-300'}`} style={{ animation: index < lives ? 'heartbeat 1.5s ease-in-out infinite' : 'none' }} />
                 ))}
               </div>
@@ -809,7 +822,7 @@ export default function App() {
               <Book className="w-4 h-4" /> Diccionario
             </button>
             <div className="flex items-center gap-1">
-              {Array.from({ length: 5 }, (_, index) => (
+              {Array.from({ length: MAX_LIVES }, (_, index) => (
                 <Heart key={index} className={`w-6 h-6 transition-all duration-300 ${index < lives ? 'text-red-500 fill-red-500 animate-pulse' : 'text-gray-300 fill-gray-300'}`} style={{ animation: index < lives ? 'heartbeat 1.5s ease-in-out infinite' : 'none' }} />
               ))}
             </div>

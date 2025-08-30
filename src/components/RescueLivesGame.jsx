@@ -33,6 +33,12 @@ export default function RescueLivesGame({ levels, currentLevel, onClose }) {
   const pool = React.useMemo(() => buildRescuePool(levels, currentLevel), [levels, currentLevel]);
   const totalPages = Math.min(6, Math.floor(pool.length / 5));
 
+  // Si no hay suficientes pares para armar al menos 1 página:
+  if (totalPages <= 0) {
+    onClose?.({ pagesCompleted: 0, totalPages: 0, hearts: 0 });
+    return null;
+  }
+
   const [page, setPage] = React.useState(0);
   const [pagesCompleted, setPagesCompleted] = React.useState(0);
 
@@ -48,10 +54,6 @@ export default function RescueLivesGame({ levels, currentLevel, onClose }) {
   const [solvedKeys, setSolvedKeys] = React.useState(new Set());
 
   React.useEffect(() => {
-    if (totalPages <= 0) {
-      onClose?.({ pagesCompleted: 0, totalPages: 0, hearts: 0 });
-      return;
-    }
     const startIndex = page * 5;
     const items = pool.slice(startIndex, startIndex + 5);
     const nextPairs = items.map((it) => ({
@@ -100,8 +102,6 @@ export default function RescueLivesGame({ levels, currentLevel, onClose }) {
       }
     }
   }, [solvedKeys]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  if (totalPages <= 0) return null;
 
   // Estilo de card uniforme (mismo contenedor, ancho y alto)
   const cardCls = "h-20 md:h-24 w-full flex flex-col items-center justify-center " +
