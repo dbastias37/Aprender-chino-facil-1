@@ -673,7 +673,7 @@ export default function App() {
                   onClose={({ pagesCompleted, totalPages, hearts, bonusLives }) => {
                     setShowRescue(false);
 
-                    // hearts: 'full' | 2 | 1 | 0
+                    // 1) premio por desempeño del minijuego
                     if (hearts === 'full') {
                       setLives(MAX_LIVES);
                       setGameOverType(null);
@@ -685,11 +685,13 @@ export default function App() {
                       setGameOverType(null);
                     }
 
-                    if (bonusLives) {
+                    // 2) sumar 💚 verdes acumulados (puede ser > 1)
+                    if (bonusLives && bonusLives > 0) {
                       setLives(prev => Math.min(MAX_LIVES, (prev || 0) + bonusLives));
                       setGameOverType(null);
                     }
 
+                    // (opcional) mostrar resumen
                     setRescueSummary({ hearts, bonus: bonusLives, pagesCompleted, totalPages });
                   }}
                 />
