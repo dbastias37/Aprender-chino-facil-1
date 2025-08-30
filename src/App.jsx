@@ -670,32 +670,39 @@ export default function App() {
                 <RescueLivesGame
                   levels={chineseData.levels}
                   currentLevel={currentLevel}
-                  onClose={({ pagesCompleted, totalPages, hearts }) => {
+                  onClose={({ pagesCompleted, totalPages, hearts, bonusLives }) => {
                     setShowRescue(false);
 
-                    // hearts puede ser 'full' | 2 | 1 | 0
+                    // hearts puede ser 'full' | 2 | 1 | 0  — bonusLives es 0 o 1
+                    let added = 0;
                     if (hearts === 'full') {
                       setLives(MAX_LIVES);
-                      setGameOverType(null); // ahora sí vuelve al juego con 4 vidas
-                      setRescueSummary({ hearts: 'full', pagesCompleted, totalPages });
+                      added = MAX_LIVES; // para el panel de resumen si lo usas
                     } else if (hearts >= 2) {
-                      setLives(prev => Math.min(MAX_LIVES, (prev || 0) + 2));
-                      setGameOverType(null);
-                      setRescueSummary({ hearts: 2, pagesCompleted, totalPages });
+                      setLives(prev => Math.min(MAX_LIVES, (prev || 0) + hearts));
+                      added = hearts;
                     } else if (hearts === 1) {
                       setLives(prev => Math.min(MAX_LIVES, (prev || 0) + 1));
-                      setGameOverType(null);
-                      setRescueSummary({ hearts: 1, pagesCompleted, totalPages });
-                    } else {
-                      // 0 vidas recuperadas → seguir en game over, NO salir a jugar
-                      setRescueSummary({ hearts: 0, pagesCompleted, totalPages });
-                      // Importante: NO hacer setGameOverType(null) aquí.
+                      added = 1;
                     }
+
+                    if (bonusLives) {
+                      setLives(prev => Math.min(MAX_LIVES, (prev || 0) + bonusLives));
+                      added += bonusLives;
+                    }
+
+                    if ((hearts === 'full') || (hearts >= 1) || (bonusLives >= 1)) {
+                      // Hay al menos 1 vida para seguir jugando
+                      setGameOverType(null);
+                    }
+
+                    // Si usas panel de “vidas recuperadas”, puedes mostrar “+1 por bonus” en el copy:
+                    setRescueSummary({ hearts: hearts, bonus: bonusLives, pagesCompleted, totalPages });
                   }}
                 />
               )}
               <FloatingPanel
-                open={!!rescueSummary && rescueSummary.hearts !== 0}
+                open={!!rescueSummary && (rescueSummary.hearts !== 0 || rescueSummary.bonus)}
                 title="¡Vidas recuperadas!"
                 onClose={() => setRescueSummary(null)}
                 actions={[{
@@ -711,9 +718,15 @@ export default function App() {
               >
                 <div className="text-gray-700">
                   {rescueSummary?.hearts === 'full' ? (
-                    <p>¡Completaste todas las páginas ({rescueSummary?.totalPages}) y recuperaste <b>todas</b> las vidas!</p>
+                    <p>
+                      ¡Completaste todas las páginas ({rescueSummary?.totalPages}) y recuperaste <b>todas</b> las vidas
+                      {rescueSummary?.bonus ? ' +1 por bonus' : ''}!
+                    </p>
                   ) : (
-                    <p>Completaste {rescueSummary?.pagesCompleted} / {rescueSummary?.totalPages} páginas y recuperaste <b>{rescueSummary?.hearts}</b> {rescueSummary?.hearts===1?'vida':'vidas'}.</p>
+                    <p>
+                      Completaste {rescueSummary?.pagesCompleted} / {rescueSummary?.totalPages} páginas y recuperaste <b>{rescueSummary?.hearts}</b> {rescueSummary?.hearts===1?'vida':'vidas'}
+                      {rescueSummary?.bonus ? ' +1 por bonus' : ''}.
+                    </p>
                   )}
                 </div>
               </FloatingPanel>
