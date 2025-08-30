@@ -66,6 +66,8 @@ export default function RescueLivesGame({ levels, currentLevel, onClose }) {
   const [bonusOpen, setBonusOpen] = React.useState(false);        // muestra el panel del bonus
   const [bonusAwarded, setBonusAwarded] = React.useState(false);  // ya ganado en esta sesión
   const [bonusLives, setBonusLives] = React.useState(0);          // 0 o 1
+  // NUEVO: panel de confirmación al terminar el bonus con éxito
+  const [bonusCongratsOpen, setBonusCongratsOpen] = React.useState(false);
 
   // Fuente para el bonus: palabras resueltas en la sesión (multi-caracter)
   const sessionSolvedWordsRef = React.useRef(new Set());
@@ -135,10 +137,14 @@ export default function RescueLivesGame({ levels, currentLevel, onClose }) {
     const str = currentBonusString();
     const ok = bonusTargets.some(t => t.replace(/\s+/g,'') === str);
     if (ok) {
-      setBonusLives(1);
+      setBonusLives(1);         // +1 vida bonus (se aplicará al final del minijuego)
       setBonusAwarded(true);
+      setBonusOpen(false);      // cerrar el editor del bonus
+      setBonusCongratsOpen(true); // mostrar pantalla de “ganaste”
+    } else {
+      // falló: solo cerrar el editor del bonus (sin premio)
+      setBonusOpen(false);
     }
-    setBonusOpen(false); // cerrar bonus tras intentar (ganado o no)
   };
 
   // construir página
@@ -350,6 +356,24 @@ export default function RescueLivesGame({ levels, currentLevel, onClose }) {
             </div>
           </FloatingPanel>
         )}
+
+        {/* Panel de cierre del bonus: confirma premio y vuelve al minijuego */}
+        <FloatingPanel
+          open={bonusCongratsOpen}
+          title="¡Bonus completado!"
+          onClose={() => setBonusCongratsOpen(false)}
+          actions={[
+            {
+              label: 'Seguir',
+              className: 'px-4 py-2 rounded-xl bg-emerald-600 text-white',
+              onClick: () => setBonusCongratsOpen(false)
+            }
+          ]}
+        >
+          <div className="text-sm text-gray-700">
+            ¡Ganaste un corazón <b>bonus</b>! Rescata las vidas que puedas y sigue jugando.
+          </div>
+        </FloatingPanel>
       </div>
     </div>
   );

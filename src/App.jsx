@@ -673,31 +673,24 @@ export default function App() {
                   onClose={({ pagesCompleted, totalPages, hearts, bonusLives }) => {
                     setShowRescue(false);
 
-                    // hearts puede ser 'full' | 2 | 1 | 0  — bonusLives es 0 o 1
-                    let added = 0;
+                    // hearts: 'full' | 2 | 1 | 0
                     if (hearts === 'full') {
                       setLives(MAX_LIVES);
-                      added = MAX_LIVES; // para el panel de resumen si lo usas
+                      setGameOverType(null);
                     } else if (hearts >= 2) {
                       setLives(prev => Math.min(MAX_LIVES, (prev || 0) + hearts));
-                      added = hearts;
+                      setGameOverType(null);
                     } else if (hearts === 1) {
                       setLives(prev => Math.min(MAX_LIVES, (prev || 0) + 1));
-                      added = 1;
+                      setGameOverType(null);
                     }
 
                     if (bonusLives) {
                       setLives(prev => Math.min(MAX_LIVES, (prev || 0) + bonusLives));
-                      added += bonusLives;
-                    }
-
-                    if ((hearts === 'full') || (hearts >= 1) || (bonusLives >= 1)) {
-                      // Hay al menos 1 vida para seguir jugando
                       setGameOverType(null);
                     }
 
-                    // Si usas panel de “vidas recuperadas”, puedes mostrar “+1 por bonus” en el copy:
-                    setRescueSummary({ hearts: hearts, bonus: bonusLives, pagesCompleted, totalPages });
+                    setRescueSummary({ hearts, bonus: bonusLives, pagesCompleted, totalPages });
                   }}
                 />
               )}
