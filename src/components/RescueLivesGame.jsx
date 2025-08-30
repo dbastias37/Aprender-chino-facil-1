@@ -151,7 +151,7 @@ export default function RescueLivesGame({ levels, currentLevel, maxLives = 5, on
   if (totalPages <= 0) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center"
+    <div className="fixed inset-0 z-[60] flex items-center justify-center"
          onMouseMove={onMove} onMouseUp={onUp}
          onTouchMove={onMove} onTouchEnd={onUp}>
       <div className="absolute inset-0 bg-black/40" />
