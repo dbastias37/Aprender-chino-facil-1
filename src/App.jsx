@@ -296,13 +296,12 @@ export default function App() {
   const [showSummary, setShowSummary] = useState(false);
   const [examQuestion, setExamQuestion] = useState(0);
   const [examStats, setExamStats] = useState({
-    correct: 0,
+  correct: 0,
     wrong: 0,
     streak: 0,
     bestStreak: 0,
     mistakes: {}
   });
-  const PASS_THRESHOLD = 4;
   const [levelProgress, setLevelProgress] = useState({});
   const [showResult, setShowResult] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
@@ -934,6 +933,47 @@ export default function App() {
   title="¡Vidas recuperadas!"
   onClose={()=>setRescueSummary(null)}
   actions={[{ label:'Continuar', className:'px-4 py-2 rounded-xl bg-emerald-600 text-white', onClick:()=>{ setRescueSummary(null); } }]}
+>
+  <div className="text-gray-700">
+    {rescueSummary?.hearts === 'full' ? (
+      <p>¡Completaste todas las páginas ({rescueSummary?.totalPages}) y recuperaste <b>todas</b> las vidas!</p>
+    ) : (
+      <p>Completaste {rescueSummary?.pagesCompleted} / {rescueSummary?.totalPages} páginas y recuperaste <b>{rescueSummary?.hearts}</b> {rescueSummary?.hearts===1?'vida':'vidas'}.</p>
+    )}
+  </div>
+</FloatingPanel>
+
+{showRescue && (
+  <RescueLivesGame
+    levels={chineseData.levels}
+    currentLevel={currentLevel}
+    onClose={({ pagesCompleted, totalPages, hearts }) => {
+      setShowRescue(false);
+      // Sumar vidas según desempeño
+      if (hearts === 'full') {
+        setLives(5);
+        setGameOverType(null);
+        setRescueSummary({ hearts: 'full', pagesCompleted, totalPages });
+      } else if (hearts >= 2) {
+        setLives(prev => Math.min(5, (prev || 0) + 2));
+        setGameOverType(null);
+        setRescueSummary({ hearts: 2, pagesCompleted, totalPages });
+      } else if (hearts === 1) {
+        setLives(prev => Math.min(5, (prev || 0) + 1));
+        setGameOverType(null);
+        setRescueSummary({ hearts: 1, pagesCompleted, totalPages });
+      } else {
+        // Sin premio: quedarse en la pantalla de game over
+        setRescueSummary({ hearts: 0, pagesCompleted, totalPages });
+      }
+    }}
+  />
+)}
+<FloatingPanel
+  open={!!rescueSummary && rescueSummary.hearts !== 0}
+  title="¡Vidas recuperadas!"
+  onClose={()=>setRescueSummary(null)}
+  actions={[{ label:'Volver al juego', className:'px-4 py-2 rounded-xl bg-emerald-600 text-white', onClick:()=>{ setRescueSummary(null); setGameOverType(null); } }]}
 >
   <div className="text-gray-700">
     {rescueSummary?.hearts === 'full' ? (

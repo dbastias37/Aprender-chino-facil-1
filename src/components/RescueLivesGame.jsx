@@ -38,14 +38,14 @@ export default function RescueLivesGame({ levels, currentLevel, maxLives = 5, on
   const [page, setPage] = React.useState(0);
   const [pagesCompleted, setPagesCompleted] = React.useState(0);
 
-  // No pares suficientes → salir sin premio
+  // Sin pares suficientes → cerrar sin premio
   React.useEffect(() => {
     if (totalPages <= 0) {
       onClose?.({ pagesCompleted: 0, totalPages: 0, hearts: 0 });
     }
   }, [totalPages, onClose]);
 
-  // Build page data
+  // Construcción de una página (5 pares)
   const [pairs, setPairs] = React.useState([]); // [{key, left:{...}, right:{...}} x5]
   const [rightShuffled, setRightShuffled] = React.useState([]);
   const leftRefs = React.useRef([]);
@@ -55,7 +55,7 @@ export default function RescueLivesGame({ levels, currentLevel, maxLives = 5, on
     if (totalPages <= 0) return;
     const startIndex = page * 5;
     const pageItems = pool.slice(startIndex, startIndex + 5);
-    const nextPairs = pageItems.map((it, idx) => ({
+    const nextPairs = pageItems.map((it) => ({
       key: it.hanzi + '@' + it.es,
       left: { hanzi: it.hanzi, pinyin: it.pinyin },
       right: { es: it.es }
@@ -69,7 +69,7 @@ export default function RescueLivesGame({ levels, currentLevel, maxLives = 5, on
     setActive(null);
   }, [page, totalPages]); // eslint-disable-line
 
-  // Drawing
+  // Dibujo
   const [active, setActive] = React.useState(null); // { key, start:{x,y}, smoothed:{x,y} }
   const [lines, setLines] = React.useState([]); // [{ fromKey, toKey, pathD }]
   const [solved, setSolved] = React.useState(new Set());
@@ -80,7 +80,8 @@ export default function RescueLivesGame({ levels, currentLevel, maxLives = 5, on
     return { x: r.left + r.width/2 + window.scrollX, y: r.top + r.height/2 + window.scrollY };
   };
 
-  const startFromLeft = (idx) => (e) => {
+  const startFromLeft = (idx) => (ev) => {
+    const e = ev.touches ? ev.touches[0] : ev;
     if (solved.has(pairs[idx]?.key)) return;
     const el = leftRefs.current[idx];
     const c = getCenter(el);
@@ -90,7 +91,8 @@ export default function RescueLivesGame({ levels, currentLevel, maxLives = 5, on
     setActive({ key: pairs[idx].key, start: c, smoothed: sm });
   };
 
-  const onMove = (e) => {
+  const onMove = (ev) => {
+    const e = ev.touches ? ev.touches[0] : ev;
     if (!active) return;
     const pt = { x: e.clientX, y: e.clientY };
     setActive(prev => ({
@@ -102,9 +104,10 @@ export default function RescueLivesGame({ levels, currentLevel, maxLives = 5, on
     }));
   };
 
-  const onUp = (e) => {
+  const onUp = (ev) => {
+    const e = ev.changedTouches ? ev.changedTouches[0] : ev;
     if (!active) return;
-    // Find nearest right card center
+    // Buscar card derecha más cercana
     let bestIdx = -1, bestDist = Infinity;
     rightRefs.current.forEach((el, idx) => {
       if (!el) return;
@@ -118,7 +121,7 @@ export default function RescueLivesGame({ levels, currentLevel, maxLives = 5, on
     const correct = target && (target.key === active.key);
 
     if (correct) {
-      // finalize line between centers
+      // Línea final entre centros
       const start = active.start;
       const end = getCenter(rightRefs.current[bestIdx]);
       const midX = (start.x + end.x)/2;
@@ -130,16 +133,17 @@ export default function RescueLivesGame({ levels, currentLevel, maxLives = 5, on
   };
 
   React.useEffect(() => {
-    // All 5 solved?
+    // ¿Resueltos los 5 pares?
     if (pairs.length === 5 && solved.size === 5) {
       setPagesCompleted(p => p + 1);
       if (page < totalPages - 1) {
-        setTimeout(() => setPage(page + 1), 600);
+        setTimeout(() => setPage(page + 1), 500);
       } else {
-        // Finished
-        const hearts = (pagesCompleted + 1 === totalPages) ? 'full'
-          : ((pagesCompleted + 1) >= 3 ? 2 : ((pagesCompleted + 1) === 1 ? 1 : 0));
-        onClose?.({ pagesCompleted: pagesCompleted + 1, totalPages, hearts });
+        // Finalizado
+        const finished = (pagesCompleted + 1);
+        const hearts = (finished === totalPages) ? 'full'
+          : (finished >= 3 ? 2 : (finished === 1 ? 1 : 0));
+        onClose?.({ pagesCompleted: finished, totalPages, hearts });
       }
     }
   }, [solved]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -147,7 +151,9 @@ export default function RescueLivesGame({ levels, currentLevel, maxLives = 5, on
   if (totalPages <= 0) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" onMouseMove={onMove} onMouseUp={onUp} onTouchMove={(e)=>onMove(e.touches[0])} onTouchEnd={(e)=>onUp(e.changedTouches[0])}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center"
+         onMouseMove={onMove} onMouseUp={onUp}
+         onTouchMove={onMove} onTouchEnd={onUp}>
       <div className="absolute inset-0 bg-black/40" />
       <div className="relative z-10 bg-white w-[min(960px,96vw)] max-h-[90vh] overflow-auto rounded-3xl shadow-2xl p-6">
         <div className="flex items-center justify-between mb-4">
@@ -155,21 +161,21 @@ export default function RescueLivesGame({ levels, currentLevel, maxLives = 5, on
           <button className="px-3 py-1 rounded-lg border" onClick={()=>onClose?.({ pagesCompleted, totalPages, hearts: 0 })}>Salir</button>
         </div>
         <div className="grid grid-cols-2 gap-6 relative">
-          {/* LEFT */}
+          {/* IZQUIERDA */}
           <div className="space-y-3">
             {pairs.map((p, i) => (
               <div key={p.key}
                    ref={el => leftRefs.current[i] = el}
                    onMouseDown={startFromLeft(i)}
-                   onTouchStart={(e)=>startFromLeft(i)(e.touches[0])}
-                   className={`px-4 py-3 rounded-2xl border shadow-sm bg-white ${solved.has(p.key) ? 'opacity-60' : 'hover:bg-orange-50'}`}>
+                   onTouchStart={startFromLeft(i)}
+                   className={'px-4 py-3 rounded-2xl border shadow-sm bg-white ' + (solved.has(p.key) ? 'opacity-60' : 'hover:bg-orange-50')}>
                 <div className="text-3xl mb-1">{p.left.hanzi}</div>
                 <div className="text-xs text-gray-500">{p.left.pinyin}</div>
               </div>
             ))}
           </div>
 
-          {/* RIGHT */}
+          {/* DERECHA */}
           <div className="space-y-3">
             {rightShuffled.map((r, i) => (
               <div key={r.key}
@@ -180,13 +186,15 @@ export default function RescueLivesGame({ levels, currentLevel, maxLives = 5, on
             ))}
           </div>
 
-          {/* SVG overlay for lines */}
+          {/* SVG de líneas */}
           <svg className="pointer-events-none absolute inset-0 w-full h-full">
             {lines.map((ln, idx) => (
               <path key={idx} d={ln.pathD} fill="none" stroke="rgba(16,185,129,0.9)" strokeWidth="4" />
             ))}
             {active ? (
-              <path d={`M ${active.start.x},${active.start.y} Q ${(active.start.x+active.smoothed.x)/2},${(active.start.y+active.smoothed.y)/2} ${active.smoothed.x},${active.smoothed.y}`}
+              <path d={'M ' + active.start.x + ',' + active.start.y
+                        + ' Q ' + ((active.start.x + active.smoothed.x)/2) + ',' + ((active.start.y + active.smoothed.y)/2)
+                        + ' ' + active.smoothed.x + ',' + active.smoothed.y}
                     fill="none" stroke="rgba(251,146,60,0.9)" strokeWidth="3" />
             ) : null}
           </svg>
