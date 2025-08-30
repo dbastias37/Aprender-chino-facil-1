@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Book, Heart, Star, Trophy, X, Search, AlertTriangle } from 'lucide-react';
+import { Book, Star, Trophy, X, Search, AlertTriangle } from 'lucide-react';
 import { extendLevels } from './data/levels';
 import FloatingPanel from './components/FloatingPanel.jsx';
 import RescueLivesGame from './components/RescueLivesGame.jsx';
+import Ticker from './components/Ticker.jsx';
 
 // Datos (versión compacta con 6 niveles actuales). Si quieres 20 niveles, te los agrego luego.
 const chineseData = {
@@ -285,6 +286,7 @@ export default function App() {
   const [currentLevel, setCurrentLevel] = useState(1);
   const [currentExercise, setCurrentExercise] = useState(0);
   const [lives, setLives] = useState(MAX_LIVES);
+  const [bonusCarryOver, setBonusCarryOver] = useState(0); // cuántos 💚 están “activos”
 
   const [showRescue, setShowRescue] = useState(false);
   const [rescueSummary, setRescueSummary] = useState(null);
@@ -307,6 +309,7 @@ export default function App() {
   const [isCorrect, setIsCorrect] = useState(false);
   const [gameOverType, setGameOverType] = useState(null);
   const [randomizedExercises, setRandomizedExercises] = useState({});
+  const [showLevelsTab, setShowLevelsTab] = useState(false); // inicia oculto para dejar libre el espacio inferior
 
   useEffect(() => {
     if (gameOverType === 'noLives') {
@@ -495,6 +498,19 @@ export default function App() {
     setAttempt(prev => prev.includes(idx) ? prev.filter(i => i !== idx) : [...prev, idx]);
   };
 
+  const loseOneLife = () => {
+    setBonusCarryOver(prevBonus => {
+      if (prevBonus > 0) {
+        // gasta primero 💚
+        return prevBonus - 1;
+      } else {
+        // sin 💚 → gasta ❤️
+        setLives(l => Math.max(0, (l || 0) - 1));
+        return 0;
+      }
+    });
+  };
+
   const checkAnswer = () => {
     if (!exercise) return;
     const target = (exercise?.chinese || '').replace(/\s+/g,'');
@@ -503,9 +519,9 @@ export default function App() {
     setIsCorrect(ok);
     setShowResult(true);
     if (!ok) {
-      const newLives = Math.max(0, lives - 1);
-      setLives(newLives);
-      if (newLives === 0) {
+      const isGameOver = bonusCarryOver === 0 && (lives || 0) - 1 <= 0;
+      loseOneLife();
+      if (isGameOver) {
         setTimeout(() => { setShowResult(false); setGameOverType('noLives'); }, 1200);
         return;
       }
@@ -559,6 +575,7 @@ export default function App() {
   const restartLevel = () => {
     setCurrentExercise(0);
     setLives(MAX_LIVES);
+    setBonusCarryOver(0);
     setGameOverType(null);
     setShowResult(false);
     setShowExam(false);
@@ -689,6 +706,7 @@ export default function App() {
                     if (bonusLives && bonusLives > 0) {
                       setLives(prev => Math.min(MAX_LIVES, (prev || 0) + bonusLives));
                       setGameOverType(null);
+                      setBonusCarryOver(prev => prev + bonusLives);
                     }
 
                     // (opcional) mostrar resumen
@@ -751,9 +769,19 @@ export default function App() {
               <h2 className="text-2xl font-bold text-red-800">Examen - Nivel {currentLevel}</h2>
             </div>
             <div className="flex items-center gap-4">
+              {/* Barra global de corazones: ❤️ rojos, 💚 verdes (carry), 🤍 vacíos */}
               <div className="flex items-center gap-1">
-            {Array.from({ length: MAX_LIVES }, (_, index) => (
-                  <Heart key={index} className={`w-5 h-5 transition-all duration-300 ${index < lives ? 'text-red-500 fill-red-500 animate-pulse' : 'text-gray-300 fill-gray-300'}`} style={{ animation: index < lives ? 'heartbeat 1.5s ease-in-out infinite' : 'none' }} />
+                {/* Rojos = vidas totales menos los verdes (no bajes de 0) */}
+                {Array.from({ length: Math.max(0, (lives || 0) - (bonusCarryOver || 0)) }).map((_, i) => (
+                  <span key={'r'+i} className="text-xl">❤️</span>
+                ))}
+                {/* Verdes (bonus activos) */}
+                {Array.from({ length: Math.max(0, (bonusCarryOver || 0)) }).map((_, i) => (
+                  <span key={'g'+i} className="text-xl">💚</span>
+                ))}
+                {/* Vacíos hasta MAX_LIVES */}
+                {Array.from({ length: Math.max(0, (MAX_LIVES || 0) - (lives || 0)) }).map((_, i) => (
+                  <span key={'e'+i} className="text-xl opacity-70">🤍</span>
                 ))}
               </div>
             </div>
@@ -829,12 +857,27 @@ export default function App() {
             <button onClick={() => setShowDictionary(true)} className="flex items-center gap-2 bg-brown-600 hover:bg-brown-700 text-white px-4 py-2 rounded-2xl transition-colors" style={{ backgroundColor: '#8B4513' }} onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#A0522D')} onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#8B4513')}>
               <Book className="w-4 h-4" /> Diccionario
             </button>
+            {/* Barra global de corazones: ❤️ rojos, 💚 verdes (carry), 🤍 vacíos */}
             <div className="flex items-center gap-1">
-              {Array.from({ length: MAX_LIVES }, (_, index) => (
-                <Heart key={index} className={`w-6 h-6 transition-all duration-300 ${index < lives ? 'text-red-500 fill-red-500 animate-pulse' : 'text-gray-300 fill-gray-300'}`} style={{ animation: index < lives ? 'heartbeat 1.5s ease-in-out infinite' : 'none' }} />
+              {/* Rojos = vidas totales menos los verdes (no bajes de 0) */}
+              {Array.from({ length: Math.max(0, (lives || 0) - (bonusCarryOver || 0)) }).map((_, i) => (
+                <span key={'r'+i} className="text-xl">❤️</span>
+              ))}
+              {/* Verdes (bonus activos) */}
+              {Array.from({ length: Math.max(0, (bonusCarryOver || 0)) }).map((_, i) => (
+                <span key={'g'+i} className="text-xl">💚</span>
+              ))}
+              {/* Vacíos hasta MAX_LIVES */}
+              {Array.from({ length: Math.max(0, (MAX_LIVES || 0) - (lives || 0)) }).map((_, i) => (
+                <span key={'e'+i} className="text-xl opacity-70">🤍</span>
               ))}
             </div>
           </div>
+        </div>
+
+        {/* Ticker: arriba de la barra de progreso */}
+        <div className="max-w-3xl mx-auto mt-3 mb-2">
+          <Ticker />
         </div>
 
         <div className="mb-8">
@@ -896,23 +939,34 @@ export default function App() {
           </div>
         )}
 
-        <div className="mt-12">
-          <h3 className="text-2xl font-bold text-red-800 mb-6 text-center">Niveles</h3>
-          <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-10 gap-4 max-w-4xl mx-auto">
-            {Array.from({ length: 20 }, (_, i) => i + 1).map((levelNum) => {
-              const levelMeta = chineseData.levels.find((l) => l.id === levelNum);
-              const required = levelMeta?.exercises?.length ?? 8;
-              const progress = levelProgress[levelNum] || 0;
-              const prevMeta = chineseData.levels.find((l) => l.id === levelNum - 1);
-              const isUnlocked = levelNum === 1 || (levelProgress[levelNum - 1] || 0) >= (prevMeta?.exercises?.length || 8);
-              const isCompleted = progress >= required;
-              return (
-                <button key={levelNum} onClick={() => { if (isUnlocked) goToLevel(levelNum); }} disabled={!isUnlocked} className={`aspect-square rounded-2xl font-bold text-lg transition-all ${levelNum === currentLevel ? 'bg-red-600 text-white shadow-lg scale-110' : isCompleted ? 'bg-green-500 text-white hover:bg-green-600' : isUnlocked ? 'bg-orange-400 text-white hover:bg-orange-500' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}>
-                  {isCompleted ? '✓' : levelNum}
-                </button>
-              );
-            })}
-          </div>
+        <div className="mt-6">
+          {/* Pestaña/handler */}
+          <button
+            className="px-4 py-2 rounded-t-xl bg-white border shadow-sm hover:bg-gray-50 text-sm"
+            onClick={() => setShowLevelsTab(v => !v)}
+          >
+            {showLevelsTab ? '▾ Niveles' : '▸ Niveles'}
+          </button>
+
+          {showLevelsTab && (
+            <div className="rounded-b-xl border border-t-0 shadow-sm p-3 bg-white">
+              <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-10 gap-4 max-w-4xl mx-auto">
+                {Array.from({ length: 20 }, (_, i) => i + 1).map((levelNum) => {
+                  const levelMeta = chineseData.levels.find((l) => l.id === levelNum);
+                  const required = levelMeta?.exercises?.length ?? 8;
+                  const progress = levelProgress[levelNum] || 0;
+                  const prevMeta = chineseData.levels.find((l) => l.id === levelNum - 1);
+                  const isUnlocked = levelNum === 1 || (levelProgress[levelNum - 1] || 0) >= (prevMeta?.exercises?.length || 8);
+                  const isCompleted = progress >= required;
+                  return (
+                    <button key={levelNum} onClick={() => { if (isUnlocked) goToLevel(levelNum); }} disabled={!isUnlocked} className={`aspect-square rounded-2xl font-bold text-lg transition-all ${levelNum === currentLevel ? 'bg-red-600 text-white shadow-lg scale-110' : isCompleted ? 'bg-green-500 text-white hover:bg-green-600' : isUnlocked ? 'bg-orange-400 text-white hover:bg-orange-500' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}>
+                      {isCompleted ? '✓' : levelNum}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
