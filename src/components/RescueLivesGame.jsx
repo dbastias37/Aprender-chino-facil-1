@@ -30,6 +30,9 @@ const toCharTokens = (hanzi, pinyin) => {
   return chars.map((c, i) => ({ char: c, pinyin: pys[i] || pys[pys.length-1] || '' }));
 };
 
+const normalize = (s) => (s || '').replace(/\s+/g, '').trim();
+const eqHanzi = (a, b) => normalize(a) === normalize(b);
+
 // ============ barras de corazones ============
 const PANEL_MAX_LIVES = 6; // corazones locales del minijuego (panel)
 const HeartsBar = ({ lives, max }) => (
@@ -78,6 +81,8 @@ export default function RescueLivesGame({ levels, currentLevel, onClose }) {
   const [bonusBuild, setBonusBuild] = React.useState([]);           // índices elegidos del array tokens
   const [bonusCongratsOpen, setBonusCongratsOpen] = React.useState(false); // panel de cierre del bonus
   const [bonusLivesCount, setBonusLivesCount] = React.useState(0);  // 💚 acumulados durante EL JUEGO
+  const [bonusMsg, setBonusMsg] = React.useState(null);     // texto de feedback ✅/❌
+  const [bonusTrying, setBonusTrying] = React.useState(false); // evita doble click
 
   // construir página
   React.useEffect(() => {
@@ -180,6 +185,8 @@ export default function RescueLivesGame({ levels, currentLevel, onClose }) {
     setBonusTargets(buildBonusTargets());
     setBonusSolvedSet(new Set());
     setBonusBuild([]);
+     setBonusMsg(null);
+     setBonusTrying(false);
     setBonusOpen(true);
   };
 
@@ -192,27 +199,39 @@ export default function RescueLivesGame({ levels, currentLevel, onClose }) {
   const currentBonusString = () => bonusTokens.filter((_,i)=>bonusBuild.includes(i)).map(t=>t.char).join('');
 
   const tryBonus = () => {
-    const str = currentBonusString().replace(/\s+/g,'');
-    // Debe coincidir con alguno de los targets aún NO resueltos
-    const remaining = bonusTargets.filter(t => !bonusSolvedSet.has(t));
-    const ok = remaining.some(t => t.replace(/\s+/g,'') === str);
+    if (bonusTrying) return;
+    const str = normalize(currentBonusString());
+    if (!str || bonusBuild.length < 2) {
+      setBonusMsg('Selecciona al menos 2 caracteres.');
+      return;
+    }
+    setBonusTrying(true);
 
-    if (ok) {
-      // +1 💚 y marcar esa palabra como resuelta
-      const solved = remaining.find(t => t.replace(/\s+/g,'') === str);
+    // Palabras aún no resueltas
+    const remaining = bonusTargets.filter(t => !bonusSolvedSet.has(t));
+    // ¿Coincide con alguna?
+    const solved = remaining.find(t => eqHanzi(t, str));
+
+    if (solved) {
+      // ✅ Acierto: +1 💚 y marcar esta palabra como resuelta
       setBonusSolvedSet(prev => new Set([...prev, solved]));
       setBonusLivesCount(n => n + 1);
-      // limpiar construcción para que pueda formar otra palabra
-      setBonusBuild([]);
-      // Opción: si resolvió todas las posibles, mostramos panel de cierre
-      if (bonusSolvedSet.size + 1 >= bonusTargets.length) {
-        setBonusOpen(false);
-        setBonusCongratsOpen(true);
-      }
+      setBonusMsg('✅ ¡Correcto! +1 💚');
+      setBonusBuild([]); // limpia el armado para permitir otra palabra
+
+      // Si resolvió todas las posibles, cerramos el editor y mostramos “bonus completado”
+      setTimeout(() => {
+        if (bonusSolvedSet.size + 1 >= bonusTargets.length) {
+          setBonusOpen(false);
+          setBonusCongratsOpen(true);
+        }
+        setBonusTrying(false);
+      }, 300);
     } else {
-      // fallo en bonus: no restamos vidas locales (según requisito de “sin ayudas”)
-      // solo limpiamos la construcción
+      // ❌ Error: no se resta ❤️ local (según requisito), solo feedback y limpiar selección
+      setBonusMsg('❌ No coincide. Prueba otra combinación.');
       setBonusBuild([]);
+      setTimeout(() => setBonusTrying(false), 250);
     }
   };
 
@@ -304,8 +323,13 @@ export default function RescueLivesGame({ levels, currentLevel, onClose }) {
             title="Comodín por racha — Ordena caracteres (puedes ganar varios 💚)"
             onClose={endBonusNow}
             actions={[
-              { label:'Probar', className:'px-4 py-2 rounded-xl bg-emerald-600 text-white', onClick: tryBonus },
-              { label:'Terminar', className:'px-4 py-2 rounded-xl border', onClick: endBonusNow }
+              {
+                label: bonusTrying ? 'Probando...' : 'Probar',
+                className: 'px-4 py-2 rounded-xl bg-emerald-600 text-white disabled:opacity-60',
+                onClick: tryBonus,
+                disabled: bonusTrying || bonusBuild.length < 2
+              },
+              { label: 'Terminar', className: 'px-4 py-2 rounded-xl border', onClick: endBonusNow }
             ]}
           >
             <div className="text-sm text-gray-700 mb-3">
@@ -340,8 +364,9 @@ export default function RescueLivesGame({ levels, currentLevel, onClose }) {
             </div>
 
             {/* progreso de objetivos resueltos */}
-            <div className="mt-3 text-xs text-gray-600">
-              Resueltas: {bonusSolvedSet.size} / {bonusTargets.length} · 💚 ganados: {bonusLivesCount}
+            <div className="mt-3 text-xs">
+              <span className="text-gray-600">Resueltas: {bonusSolvedSet.size} / {bonusTargets.length} · 💚 ganados: {bonusLivesCount}</span>
+              {bonusMsg && <div className="mt-1">{bonusMsg}</div>}
             </div>
           </FloatingPanel>
         )}
