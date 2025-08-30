@@ -11,8 +11,12 @@ export default function FloatingPanel({ open, title, children, onClose, actions 
         <div className="mb-5">{children}</div>
         <div className="flex flex-wrap gap-3 justify-end">
           {actions.map((a, i) => (
-            <button key={i} onClick={a.onClick}
-              className={a.className || "px-4 py-2 rounded-xl border"}>
+            <button
+              key={i}
+              onClick={a.onClick}
+              className={a.className || "px-4 py-2 rounded-xl border"}
+              disabled={a.disabled}
+            >
               {a.label}
             </button>
           ))}
